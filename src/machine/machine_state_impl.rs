@@ -25,6 +25,7 @@ impl MachineState {
         MachineState {
             arena: Arena::new(),
             atom_tbl: AtomTable::new(),
+            op_table: Default::default(),
             pdl: Vec::with_capacity(1024),
             s: HeapPtr::default(),
             s_offset: 0,

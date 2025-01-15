@@ -194,6 +194,7 @@ pub(crate) fn neg(n: Number, arena: &mut Arena) -> Number {
     }
 }
 
+#[deprecated]
 pub(crate) fn abs(n: Number, arena: &mut Arena) -> Number {
     match n {
         Number::Fixnum(n) => {
@@ -1190,6 +1191,15 @@ impl MachineState {
 
             read_heap_cell!(value,
                 (HeapCellValueTag::Atom, (name, arity)) => {
+                    match self.op_table.run(name, arity, &mut self.interms, &mut self.arena) {
+                        Ok(()) => {
+                            continue;
+                        }
+                        Err(_err) => {
+                            // TODO: handle error once all operators have been transferred to native.rs
+                        }
+                    }
+
                     if arity == 2 {
                         let a2 = self.interms.pop().unwrap();
                         let a1 = self.interms.pop().unwrap();
@@ -1329,7 +1339,7 @@ impl MachineState {
                             atom!("atan") => self.interms.push(Number::Float(OrderedFloat(
                                 drop_iter_on_err!(self, iter, atan(a1))
                             ))),
-                            atom!("abs") => self.interms.push(abs(a1, &mut self.arena)),
+                            // atom!("abs") => self.interms.push(abs(a1, &mut self.arena)),
                             atom!("float") => self.interms.push(Number::Float(OrderedFloat(
                                 drop_iter_on_err!(self, iter, float(a1))
                             ))),

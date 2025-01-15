@@ -599,6 +599,12 @@ pub enum Number {
     Fixnum(Fixnum),
 }
 
+impl From<f64> for Number {
+    fn from(value: f64) -> Self {
+        Self::Float(OrderedFloat(value))
+    }
+}
+
 impl Default for Number {
     fn default() -> Self {
         Number::Fixnum(Fixnum::build_with(0))

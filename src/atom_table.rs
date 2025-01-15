@@ -163,6 +163,12 @@ impl std::ops::Deref for AtomString<'_> {
     }
 }
 
+impl AsRef<str> for AtomString<'_> {
+    fn as_ref(&self) -> &str {
+        &*self
+    }
+}
+
 #[cfg(feature = "repl")]
 impl rustyline::completion::Candidate for AtomString<'_> {
     fn display(&self) -> &str {
