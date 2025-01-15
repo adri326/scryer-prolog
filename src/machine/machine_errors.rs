@@ -304,7 +304,7 @@ impl DomainError for Number {
 pub(super) type FunctorStub = [HeapCellValue; 3];
 
 #[inline(always)]
-pub(super) fn functor_stub(name: Atom, arity: usize) -> FunctorStub {
+pub(crate) fn functor_stub(name: Atom, arity: usize) -> FunctorStub {
     [
         atom_as_cell!(atom!("/"), 2),
         atom_as_cell!(name),
@@ -324,7 +324,7 @@ impl MachineState {
         }
     }
 
-    pub(super) fn evaluation_error(&mut self, eval_error: EvalError) -> MachineError {
+    pub(crate) fn evaluation_error(&mut self, eval_error: EvalError) -> MachineError {
         let stub = functor!(atom!("evaluation_error"), [atom(eval_error.as_atom())]);
 
         MachineError {
@@ -354,7 +354,7 @@ impl MachineState {
         }
     }
 
-    pub(super) fn type_error<T: TypeError>(
+    pub(crate) fn type_error<T: TypeError>(
         &mut self,
         valid_type: ValidType,
         culprit: T,
@@ -628,7 +628,7 @@ impl MachineState {
         }
     }
 
-    pub(super) fn error_form(&mut self, err: MachineError, src: FunctorStub) -> MachineStub {
+    pub(crate) fn error_form(&mut self, err: MachineError, src: FunctorStub) -> MachineStub {
         let h = self.heap.len();
         let location = err.location;
         let stub_addition_len = if err.len() == 1 {

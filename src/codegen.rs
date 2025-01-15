@@ -271,6 +271,7 @@ impl CodeGenSettings {
 #[derive(Debug)]
 pub(crate) struct CodeGenerator<'a> {
     pub(crate) atom_tbl: &'a AtomTable,
+    op_table: &'a ArithmeticOperatorTable,
     marker: DebrayAllocator,
     settings: CodeGenSettings,
     pub(crate) skeleton: PredicateSkeleton,
@@ -376,9 +377,14 @@ fn structure_cell(term: &Term) -> Option<&Cell<RegType>> {
 }
 
 impl<'b> CodeGenerator<'b> {
-    pub(crate) fn new(atom_tbl: &'b AtomTable, settings: CodeGenSettings) -> Self {
+    pub(crate) fn new(
+        atom_tbl: &'b AtomTable,
+        op_table: &'b ArithmeticOperatorTable,
+        settings: CodeGenSettings,
+    ) -> Self {
         CodeGenerator {
             atom_tbl,
+            op_table,
             marker: DebrayAllocator::new(),
             settings,
             skeleton: PredicateSkeleton::new(),
@@ -821,7 +827,7 @@ impl<'b> CodeGenerator<'b> {
         term_loc: GenContext,
         arg: usize,
     ) -> Result<ArithCont, ArithmeticError> {
-        let mut evaluator = ArithmeticEvaluator::new(&mut self.marker, target_int);
+        let mut evaluator = ArithmeticEvaluator::new(&mut self.marker, &self.op_table, target_int);
         evaluator.compile_is(term, term_loc, arg)
     }
 

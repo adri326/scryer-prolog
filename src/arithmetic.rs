@@ -21,12 +21,16 @@ use num_order::NumOrd;
 use ordered_float::{Float, OrderedFloat};
 
 use std::cell::Cell;
-use std::cmp::{max, min, Ordering};
+use std::cmp::Ordering;
 use std::convert::TryFrom;
 use std::f64;
 use std::num::FpCategory;
 use std::ops::Div;
 use std::vec::Vec;
+
+mod operator;
+pub(crate) use operator::dispatch_native_op;
+pub use operator::ArithmeticOperatorTable;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ArithmeticTerm {
@@ -36,11 +40,11 @@ pub enum ArithmeticTerm {
 }
 
 impl ArithmeticTerm {
-    pub(crate) fn interm_or(&self, interm: usize) -> usize {
+    pub(crate) fn interm_or(&self, default: usize) -> usize {
         if let &ArithmeticTerm::Interm(interm) = self {
             interm
         } else {
-            interm
+            default
         }
     }
 }
@@ -137,6 +141,7 @@ impl<'a> Iterator for ArithInstructionIterator<'a> {
 #[derive(Debug)]
 pub(crate) struct ArithmeticEvaluator<'a> {
     marker: &'a mut DebrayAllocator,
+    op_table: &'a ArithmeticOperatorTable,
     interm: Vec<ArithmeticTerm>,
     interm_c: usize,
 }
@@ -177,9 +182,14 @@ fn push_literal(interm: &mut Vec<ArithmeticTerm>, c: &Literal) -> Result<(), Ari
 }
 
 impl<'a> ArithmeticEvaluator<'a> {
-    pub(crate) fn new(marker: &'a mut DebrayAllocator, target_int: usize) -> Self {
+    pub(crate) fn new(
+        marker: &'a mut DebrayAllocator,
+        op_table: &'a ArithmeticOperatorTable,
+        target_int: usize,
+    ) -> Self {
         ArithmeticEvaluator {
             marker,
+            op_table,
             interm: Vec::new(),
             interm_c: target_int,
         }
@@ -192,7 +202,7 @@ impl<'a> ArithmeticEvaluator<'a> {
         t: usize,
     ) -> Result<Instruction, ArithmeticError> {
         match name {
-            atom!("abs") => Ok(Instruction::Abs(a1, t)),
+            // atom!("abs") => Ok(Instruction::Abs(a1, t)),
             atom!("-") => Ok(Instruction::Neg(a1, t)),
             atom!("+") => Ok(Instruction::Plus(a1, t)),
             atom!("cos") => Ok(Instruction::Cos(a1, t)),
@@ -258,45 +268,54 @@ impl<'a> ArithmeticEvaluator<'a> {
         temp
     }
 
+    fn get_interms(&mut self, arity: usize) -> Vec<ArithmeticTerm> {
+        let interm_len = self.interm.len();
+        assert!(interm_len >= arity);
+        self.interm.drain((interm_len - arity)..).collect()
+    }
+
+    fn get_result_index(&mut self, terms: &[ArithmeticTerm]) -> usize {
+        if let Some(first_nonzero) = terms
+            .iter()
+            .map(|term| term.interm_or(0))
+            .filter(|x| *x != 0)
+            .min()
+        {
+            // Arithmetic operation uses an intermediate value as input,
+            // re-use it
+            self.interm.push(ArithmeticTerm::Interm(first_nonzero));
+
+            // Note: Assumes that there is no "foxtrot" operation happening
+            self.interm_c = first_nonzero + 1;
+
+            first_nonzero
+        } else {
+            // No intermediary value used as value: allocate a new intermediate value
+            self.incr_interm()
+        }
+    }
+
     fn instr_from_clause(
         &mut self,
         name: Atom,
         arity: usize,
     ) -> Result<Instruction, ArithmeticError> {
+        let mut terms = self.get_interms(arity);
+        let ninterm = self.get_result_index(&terms);
+
+        if let Some(res) = self.op_table.get_instr(&terms, name, ninterm) {
+            return Ok(res);
+        }
+
         match arity {
             1 => {
-                let a1 = self.interm.pop().unwrap();
-
-                let ninterm = if a1.interm_or(0) == 0 {
-                    self.incr_interm()
-                } else {
-                    self.interm.push(a1);
-                    a1.interm_or(0)
-                };
+                let a1 = terms.pop().unwrap();
 
                 self.get_unary_instr(name, a1, ninterm)
             }
             2 => {
-                let a2 = self.interm.pop().unwrap();
-                let a1 = self.interm.pop().unwrap();
-
-                let min_interm = min(a1.interm_or(0), a2.interm_or(0));
-
-                let ninterm = if min_interm == 0 {
-                    let max_interm = max(a1.interm_or(0), a2.interm_or(0));
-
-                    if max_interm == 0 {
-                        self.incr_interm()
-                    } else {
-                        self.interm.push(ArithmeticTerm::Interm(max_interm));
-                        self.interm_c = max_interm + 1;
-                        max_interm
-                    }
-                } else {
-                    self.interm.push(ArithmeticTerm::Interm(min_interm));
-                    self.interm_c = min_interm + 1;
-                    min_interm
-                };
+                let a2 = terms.pop().unwrap();
+                let a1 = terms.pop().unwrap();
 
                 self.get_binary_instr(name, a1, a2, ninterm)
             }

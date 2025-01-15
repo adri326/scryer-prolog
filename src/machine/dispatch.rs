@@ -718,12 +718,12 @@ impl Machine {
 
                         self.machine_st.p += 1;
                     }
-                    &Instruction::Abs(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
+                    // &Instruction::Abs(ref a1, t) => {
+                    //     let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
 
-                        self.machine_st.interms[t - 1] = abs(n1, &mut self.machine_st.arena);
-                        self.machine_st.p += 1;
-                    }
+                    //     self.machine_st.interms[t - 1] = abs(n1, &mut self.machine_st.arena);
+                    //     self.machine_st.p += 1;
+                    // }
                     &Instruction::Sign(ref a1, t) => {
                         let n = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
 
@@ -5230,6 +5230,14 @@ impl Machine {
                     &Instruction::ExecuteInferenceLimitExceeded => {
                         self.inference_limit_exceeded();
                         step_or_fail!(self, self.machine_st.p = self.machine_st.cp);
+                    }
+
+                    native_op @ Instruction::Abs(_, _) => {
+                        assert!(native_op.is_native_op());
+                        try_or_throw!(
+                            self.machine_st,
+                            crate::arithmetic::dispatch_native_op(&mut self.machine_st, native_op)
+                        );
                     }
                 }
             }

@@ -24,6 +24,8 @@ use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::sync::Arc;
 
+use super::ArithmeticOperatorTable;
+
 pub(crate) type Registers = [HeapCellValue; MAX_ARITY + 1];
 
 #[derive(Debug, Clone, Copy)]
@@ -60,10 +62,13 @@ pub enum OnEOF {
 pub struct MachineState {
     pub atom_tbl: Arc<AtomTable>,
     pub arena: Arena,
+
+    pub(crate) op_table: ArithmeticOperatorTable,
+
     pub(super) pdl: Vec<HeapCellValue>,
     pub(super) s: HeapPtr,
     pub(super) s_offset: usize,
-    pub(super) p: usize,
+    pub(crate) p: usize,
     pub(super) oip: u32, // first internal code ptr
     pub(super) iip: u32, // second internal code ptr
     pub(super) b: usize,
@@ -85,7 +90,7 @@ pub struct MachineState {
     pub(super) ball: Ball,
     pub(super) ball_stack: Vec<Ball>, // save current ball before jumping via, e.g., verify_attr interrupt.
     pub(super) lifted_heap: Heap,
-    pub(super) interms: Vec<Number>, // intermediate numbers.
+    pub(crate) interms: Vec<Number>, // intermediate numbers.
     // locations of cleaners, cut points, the previous scc_block. for setup_call_cleanup/3.
     pub(super) cont_pts: Vec<(HeapCellValue, usize, usize)>,
     pub(super) cwil: CWIL,

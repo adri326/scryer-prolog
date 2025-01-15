@@ -1241,7 +1241,8 @@ impl<'a, LS: LoadState<'a>> Loader<'a, LS> {
         let clause = self.try_term_to_tl(term, &mut preprocessor)?;
         // let queue = preprocessor.parse_queue(self)?;
 
-        let mut cg = CodeGenerator::new(&LS::machine_st(&mut self.payload).atom_tbl, settings);
+        let machine_st = LS::machine_st(&mut self.payload);
+        let mut cg = CodeGenerator::new(&machine_st.atom_tbl, &machine_st.op_table, settings);
 
         let clause_code = cg.compile_predicate(vec![clause])?;
 
@@ -1271,7 +1272,8 @@ impl<'a, LS: LoadState<'a>> Loader<'a, LS> {
             clauses.push(self.try_term_to_tl(term, &mut preprocessor)?);
         }
 
-        let mut cg = CodeGenerator::new(&LS::machine_st(&mut self.payload).atom_tbl, settings);
+        let machine_st = LS::machine_st(&mut self.payload);
+        let mut cg = CodeGenerator::new(&machine_st.atom_tbl, &machine_st.op_table, settings);
 
         let mut code = cg.compile_predicate(clauses)?;
 
