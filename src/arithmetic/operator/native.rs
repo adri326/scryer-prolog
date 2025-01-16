@@ -65,6 +65,7 @@ macro_rules! native_ops {
         dispatch: $dispatch_vis:vis $dispatch_name:ident,
         array: $array_vis:vis $array_name:ident;
         $($root:ident $(:: $path:ident)* ($($param:ident),*) => ( $name:tt, $run:path )),*
+        $(,)?
     ) => {
         impl Instruction {
             pub(crate) const fn is_native_op(&self) -> bool {
@@ -216,8 +217,8 @@ macro_rules! native_ops {
     ( __count; ) => {
         0
     };
-    ( __count; $head:ident $(, $($rest:ident),+)? ) => {
-        1 + native_ops!(__count; $($rest),*)
+    ( __count; $head:ident $(, $rest:ident)* ) => {
+        1 + native_ops!(__count; $( $rest ),*)
     };
 }
 
@@ -225,51 +226,262 @@ native_ops!(
     dispatch: pub(crate) dispatch_native_op,
     array: pub(super) NATIVE_OPS;
 
-    Instruction::Abs(a, t) => ("abs", abs)
+    Instruction::Neg(a, t) => ("-", unary::neg),
+    Instruction::Plus(a, t) => ("+", unary::plus),
+    Instruction::Float(a, t) => ("float", unary::float),
+    Instruction::Abs(a, t) => ("abs", unary::abs),
+    Instruction::Floor(a, t) => ("floor", unary::floor),
+    Instruction::Truncate(a, t) => ("truncate", unary::truncate),
+    Instruction::Ceiling(a, t) => ("ceiling", unary::ceiling),
+    Instruction::Round(a, t) => ("round", unary::round),
+    Instruction::Cos(a, t) => ("cos", unary::cos),
+    Instruction::Sin(a, t) => ("sin", unary::sin),
+    Instruction::Tan(a, t) => ("tan", unary::tan),
+    Instruction::ACos(a, t) => ("acos", unary::acos),
+    Instruction::ASin(a, t) => ("asin", unary::asin),
+    Instruction::ATan(a, t) => ("atan", unary::atan),
+    Instruction::Log(a, t) => ("log", unary::log),
+    Instruction::Exp(a, t) => ("exp", unary::exp),
+    Instruction::Sqrt(a, t) => ("sqrt", unary::sqrt),
+    Instruction::FloatFractionalPart(a, t) => ("float_fractional_part", unary::float_fractional_part),
+    Instruction::FloatIntegerPart(a, t) => ("float_integer_part", unary::float_integer_part),
+    Instruction::BitwiseComplement(a, t) => ("\\", unary::bitwise_complement),
+    Instruction::Sign(a, t) => ("sign", unary::sign),
 );
 
-// const NATIVE_OPS: [ArithmeticOperator; 21] = [
-//     native_op!("abs", Instruction::Abs(a, t), abs),
-//     native_op!("-", 1, Neg, todo),
-//     native_op!("+", 1, Plus, todo),
-//     native_op!("cos", 1, Cos, todo),
-//     native_op!("sin", 1, Sin, todo),
-//     native_op!("tan", 1, Tan, todo),
-//     native_op!("log", 1, Log, todo),
-//     native_op!("exp", 1, Exp, todo),
-//     native_op!("sqrt", 1, Sqrt, todo),
-//     native_op!("acos", 1, ACos, todo),
-//     native_op!("asin", 1, ASin, todo),
-//     native_op!("atan", 1, ATan, todo),
-//     native_op!("float", 1, Float, todo),
-//     native_op!("truncate", 1, Truncate, todo),
-//     native_op!("round", 1, Round, todo),
-//     native_op!("ceiling", 1, Ceiling, todo),
-//     native_op!("floor", 1, Floor, todo),
-//     native_op!("float_integer_part", 1, FloatIntegerPart, todo),
-//     native_op!("float_fractional_part", 1, FloatFractionalPart, todo),
-//     native_op!("sign", 1, Sign, todo),
-//     native_op!("\\", 1, BitwiseComplement, todo),
-// ];
+mod unary {
+    use super::*;
 
-fn abs(n: Number, arena: &mut Arena) -> Result<Number, Infallible> {
-    Ok(match n {
-        Number::Fixnum(n) => {
-            if let Some(n) = n.get_num().checked_abs() {
-                fixnum!(Number, n, arena)
-            } else {
-                let arena_int = Integer::from(n.get_num());
-                Number::arena_from(arena_int.abs(), arena)
+    #[inline(always)]
+    fn float_template<F: Fn(f64) -> f64>(num: Number, cb: F) -> Result<Number, EvalError> {
+        let float = result_f(&num)?;
+        Ok(Number::Float(OrderedFloat(cb(float))))
+    }
+
+    #[inline(always)]
+    pub(crate) fn plus(num: Number, _arena: &mut Arena) -> Result<Number, Infallible> {
+        Ok(num)
+    }
+
+    #[inline]
+    pub(crate) fn float(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |x| x)
+    }
+
+    #[inline]
+    pub(crate) fn abs(n: Number, arena: &mut Arena) -> Result<Number, Infallible> {
+        Ok(match n {
+            Number::Fixnum(n) => {
+                if let Some(n) = n.get_num().checked_abs() {
+                    fixnum!(Number, n, arena)
+                } else {
+                    let arena_int = Integer::from(n.get_num());
+                    Number::arena_from(arena_int.abs(), arena)
+                }
+            }
+            Number::Integer(n) => {
+                let n_clone: Integer = (*n).clone();
+                Number::arena_from(Integer::from(n_clone.abs()), arena)
+            }
+            Number::Float(f) => Number::Float(f.abs()),
+            Number::Rational(r) => {
+                let r_clone: Rational = (*r).clone();
+                Number::arena_from(Rational::from(r_clone.abs()), arena)
+            }
+        })
+    }
+
+    #[inline]
+    pub(crate) fn neg(n: Number, arena: &mut Arena) -> Result<Number, Infallible> {
+        Ok(match n {
+            Number::Fixnum(n) => {
+                if let Some(n) = n.get_num().checked_neg() {
+                    fixnum!(Number, n, arena)
+                } else {
+                    Number::arena_from(-Integer::from(n.get_num()), arena)
+                }
+            }
+            Number::Integer(n) => {
+                let n_clone: Integer = (*n).clone();
+                Number::arena_from(-Integer::from(n_clone), arena)
+            }
+            Number::Float(OrderedFloat(f)) => Number::Float(OrderedFloat(-f)),
+            Number::Rational(r) => {
+                let r_clone: Rational = (*r).clone();
+                Number::arena_from(-Rational::from(r_clone), arena)
+            }
+        })
+    }
+
+    #[inline(always)]
+    pub(crate) fn floor(num: Number, arena: &mut Arena) -> Result<Number, Infallible> {
+        // TODO: bring rnd_i here
+        Ok(crate::arithmetic::rnd_i(&num, arena))
+    }
+
+    #[inline]
+    pub(crate) fn truncate(n: Number, arena: &mut Arena) -> Result<Number, Infallible> {
+        if n.is_negative() {
+            let n = abs(n, arena)?;
+            let n = floor(n, arena)?;
+
+            neg(n, arena)
+        } else {
+            floor(n, arena)
+        }
+    }
+
+    #[inline]
+    pub(crate) fn ceiling(n1: Number, arena: &mut Arena) -> Result<Number, Infallible> {
+        let n1 = neg(n1, arena)?;
+        let n1 = floor(n1, arena)?;
+
+        neg(n1, arena)
+    }
+
+    pub(crate) fn round(num: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
+        let res = match num {
+            Number::Fixnum(_) | Number::Integer(_) => num,
+            Number::Rational(rat) => Number::arena_from(rat.round(), arena),
+            Number::Float(f) => Number::Float(OrderedFloat((*f).round())),
+        };
+
+        Ok(rnd_i(&res, arena))
+    }
+
+    #[inline]
+    pub(crate) fn sin(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.sin())
+    }
+
+    #[inline]
+    pub(crate) fn cos(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.cos())
+    }
+
+    #[inline]
+    pub(crate) fn tan(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.tan())
+    }
+
+    #[inline]
+    pub(crate) fn log(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        if num.is_negative() || num.is_zero() {
+            return Err(EvalError::Undefined);
+        }
+
+        float_template(num, |f| f.ln())
+    }
+
+    #[inline]
+    pub(crate) fn exp(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.exp())
+    }
+
+    #[inline]
+    pub(crate) fn asin(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.asin())
+    }
+
+    #[inline]
+    pub(crate) fn acos(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.acos())
+    }
+
+    #[inline]
+    pub(crate) fn atan(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.atan())
+    }
+
+    #[inline]
+    pub(crate) fn float_fractional_part(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.fract())
+    }
+
+    #[inline]
+    pub(crate) fn float_integer_part(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        float_template(num, |f| f.trunc())
+    }
+
+    #[inline]
+    pub(crate) fn sqrt(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        if num.is_negative() {
+            return Err(EvalError::Undefined);
+        }
+
+        float_template(num, |f| f.sqrt())
+    }
+
+    #[inline]
+    pub(crate) fn bitwise_complement(num: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
+        match num {
+            Number::Fixnum(n) => Ok(Number::Fixnum(Fixnum::build_with(!n.get_num()))),
+            Number::Integer(n) => Ok(Number::arena_from(Integer::from(!&*n), arena)),
+            _ => {
+                Err(numerical_type_error(
+                    ValidType::Integer,
+                    num,
+                    atom!("\\"),
+                    2
+                ))
             }
         }
-        Number::Integer(n) => {
-            let n_clone: Integer = (*n).clone();
-            Number::arena_from(Integer::from(n_clone.abs()), arena)
+    }
+
+    #[inline]
+    pub(crate) fn sign(num: Number, _arena: &mut Arena) -> Result<Number, Infallible> {
+        Ok(num.sign())
+    }
+}
+
+mod binary {
+    use super::*;
+
+    pub(crate) fn add(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, EvalError> {
+        match (lhs, rhs) {
+            (Number::Fixnum(n1), Number::Fixnum(n2)) => Ok(
+                if let Some(result) = n1.get_num().checked_add(n2.get_num()) {
+                    fixnum!(Number, result, arena)
+                } else {
+                    Number::arena_from(
+                        Integer::from(n1.get_num()) + Integer::from(n2.get_num()),
+                        arena,
+                    )
+                },
+            ),
+            (Number::Fixnum(n1), Number::Integer(n2)) | (Number::Integer(n2), Number::Fixnum(n1)) => {
+                Ok(Number::arena_from(
+                    Integer::from(n1.get_num()) + &*n2,
+                    arena,
+                ))
+            }
+            (Number::Fixnum(n1), Number::Rational(n2)) | (Number::Rational(n2), Number::Fixnum(n1)) => {
+                Ok(Number::arena_from(
+                    Rational::from(n1.get_num()) + &*n2,
+                    arena,
+                ))
+            }
+            (Number::Fixnum(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Fixnum(n1)) => {
+                Ok(Number::Float(add_f(float_fn_to_f(n1.get_num())?, n2)?))
+            }
+            (Number::Integer(n1), Number::Integer(n2)) => {
+                Ok(Number::arena_from(&*n1 + &*n2, arena)) // add_i
+            }
+            (Number::Integer(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Integer(n1)) => {
+                Ok(Number::Float(add_f(float_i_to_f(&n1)?, n2)?))
+            }
+            (Number::Integer(n1), Number::Rational(n2))
+            | (Number::Rational(n2), Number::Integer(n1)) => Ok(Number::arena_from(&*n1 + &*n2, arena)),
+            (Number::Rational(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Rational(n1)) => {
+                Ok(Number::Float(add_f(float_r_to_f(&n1)?, n2)?))
+            }
+            (Number::Float(OrderedFloat(f1)), Number::Float(OrderedFloat(f2))) => {
+                Ok(Number::Float(add_f(f1, f2)?))
+            }
+            (Number::Rational(r1), Number::Rational(r2)) => Ok(Number::arena_from(&*r1 + &*r2, arena)),
         }
-        Number::Float(f) => Number::Float(f.abs()),
-        Number::Rational(r) => {
-            let r_clone: Rational = (*r).clone();
-            Number::arena_from(Rational::from(r_clone.abs()), arena)
-        }
-    })
+    }
 }
