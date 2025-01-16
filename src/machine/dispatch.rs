@@ -718,34 +718,6 @@ impl Machine {
 
                         self.machine_st.p += 1;
                     }
-                    // &Instruction::Abs(ref a1, t) => {
-                    //     let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                    //     self.machine_st.interms[t - 1] = abs(n1, &mut self.machine_st.arena);
-                    //     self.machine_st.p += 1;
-                    // }
-                    &Instruction::Sign(ref a1, t) => {
-                        let n = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = n.sign();
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Neg(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = neg(n1, &mut self.machine_st.arena);
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::BitwiseComplement(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            bitwise_complement(n1, &mut self.machine_st.arena)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
                     &Instruction::Div(ref a1, ref a2, t) => {
                         let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
                         let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
@@ -832,87 +804,6 @@ impl Machine {
 
                         self.machine_st.p += 1;
                     }
-                    &Instruction::Cos(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, cos(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Sin(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, sin(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Tan(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, tan(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Sqrt(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, sqrt(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Log(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, log(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Exp(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, exp(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::ACos(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, acos(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::ASin(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, asin(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::ATan(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, atan(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
                     &Instruction::ATan2(ref a1, ref a2, t) => {
                         let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
                         let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
@@ -921,67 +812,6 @@ impl Machine {
                             try_or_throw_gen!(&mut self.machine_st, atan2(n1, n2)),
                         ));
 
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Float(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, float(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Truncate(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = truncate(n1, &mut self.machine_st.arena);
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Round(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            round(n1, &mut self.machine_st.arena)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Ceiling(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = ceiling(n1, &mut self.machine_st.arena);
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Floor(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = floor(n1, &mut self.machine_st.arena);
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::FloatFractionalPart(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, float_fractional_part(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::FloatIntegerPart(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = Number::Float(OrderedFloat(
-                            try_or_throw_gen!(&mut self.machine_st, float_integer_part(n1)),
-                        ));
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Plus(ref a1, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-
-                        self.machine_st.interms[t - 1] = n1;
                         self.machine_st.p += 1;
                     }
                     &Instruction::DynamicElse(..) => {
@@ -5232,7 +5062,27 @@ impl Machine {
                         step_or_fail!(self, self.machine_st.p = self.machine_st.cp);
                     }
 
-                    native_op @ Instruction::Abs(_, _) => {
+                    native_op @ (Instruction::Neg(_, _)
+                    | Instruction::Plus(_, _)
+                    | Instruction::Float(_, _)
+                    | Instruction::Abs(_, _)
+                    | Instruction::Floor(_, _)
+                    | Instruction::Truncate(_, _)
+                    | Instruction::Ceiling(_, _)
+                    | Instruction::Round(_, _)
+                    | Instruction::Cos(_, _)
+                    | Instruction::Sin(_, _)
+                    | Instruction::Tan(_, _)
+                    | Instruction::ACos(_, _)
+                    | Instruction::ASin(_, _)
+                    | Instruction::ATan(_, _)
+                    | Instruction::Log(_, _)
+                    | Instruction::Exp(_, _)
+                    | Instruction::Sqrt(_, _)
+                    | Instruction::FloatFractionalPart(_, _)
+                    | Instruction::FloatIntegerPart(_, _)
+                    | Instruction::BitwiseComplement(_, _)
+                    | Instruction::Sign(_, _)) => {
                         assert!(native_op.is_native_op());
                         try_or_throw!(
                             self.machine_st,

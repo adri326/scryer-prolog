@@ -48,6 +48,7 @@ macro_rules! drop_iter_on_err {
     };
 }
 
+// TODO: remove
 fn zero_divisor_eval_error(stub_gen: impl Fn() -> FunctorStub + 'static) -> MachineStubGen {
     Box::new(move |machine_st| {
         let eval_error = machine_st.evaluation_error(EvalError::ZeroDivisor);
@@ -57,6 +58,7 @@ fn zero_divisor_eval_error(stub_gen: impl Fn() -> FunctorStub + 'static) -> Mach
     })
 }
 
+// TODO: remove
 fn undefined_eval_error(stub_gen: impl Fn() -> FunctorStub + 'static) -> MachineStubGen {
     Box::new(move |machine_st| {
         let eval_error = machine_st.evaluation_error(EvalError::Undefined);
@@ -66,6 +68,7 @@ fn undefined_eval_error(stub_gen: impl Fn() -> FunctorStub + 'static) -> Machine
     })
 }
 
+// TODO: deprecate and remove
 fn numerical_type_error(
     valid_type: ValidType,
     n: Number,
@@ -190,29 +193,6 @@ pub(crate) fn neg(n: Number, arena: &mut Arena) -> Number {
         Number::Rational(r) => {
             let r_clone: Rational = (*r).clone();
             Number::arena_from(-Rational::from(r_clone), arena)
-        }
-    }
-}
-
-#[deprecated]
-pub(crate) fn abs(n: Number, arena: &mut Arena) -> Number {
-    match n {
-        Number::Fixnum(n) => {
-            if let Some(n) = n.get_num().checked_abs() {
-                fixnum!(Number, n, arena)
-            } else {
-                let arena_int = Integer::from(n.get_num());
-                Number::arena_from(arena_int.abs(), arena)
-            }
-        }
-        Number::Integer(n) => {
-            let n_clone: Integer = (*n).clone();
-            Number::arena_from(Integer::from(n_clone.abs()), arena)
-        }
-        Number::Float(f) => Number::Float(f.abs()),
-        Number::Rational(r) => {
-            let r_clone: Rational = (*r).clone();
-            Number::arena_from(Rational::from(r_clone.abs()), arena)
         }
     }
 }
@@ -991,133 +971,6 @@ pub(crate) fn atan2(n1: Number, n2: Number) -> Result<f64, MachineStubGen> {
     }
 }
 
-#[inline]
-pub(crate) fn sin(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.sin())
-}
-
-#[inline]
-pub(crate) fn cos(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.cos())
-}
-
-#[inline]
-pub(crate) fn tan(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.tan())
-}
-
-#[inline]
-pub(crate) fn log(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.log(f64::consts::E))
-}
-
-#[inline]
-pub(crate) fn exp(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.exp())
-}
-
-#[inline]
-pub(crate) fn asin(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.asin())
-}
-
-#[inline]
-pub(crate) fn acos(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.acos())
-}
-
-#[inline]
-pub(crate) fn atan(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.atan())
-}
-
-#[inline]
-pub(crate) fn float_fractional_part(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.fract())
-}
-
-#[inline]
-pub(crate) fn float_integer_part(n1: Number) -> Result<f64, MachineStubGen> {
-    unary_float_fn_template(n1, |f| f.trunc())
-}
-
-#[inline]
-pub(crate) fn sqrt(n1: Number) -> Result<f64, MachineStubGen> {
-    if n1.is_negative() {
-        let stub_gen = || {
-            let is_atom = atom!("is");
-            functor_stub(is_atom, 2)
-        };
-
-        return Err(undefined_eval_error(stub_gen));
-    }
-
-    unary_float_fn_template(n1, |f| f.sqrt())
-}
-
-#[inline]
-pub(crate) fn floor(n1: Number, arena: &mut Arena) -> Number {
-    rnd_i(&n1, arena).unwrap_or_else(|_err| {
-        // FIXME: Currently floor/1 (and several call sites) are infallible,
-        // but the failing cases (when `n1` is `Number::Float(NAN)` or `Number::Float(INFINITY)`)
-        // are not reachable with standard is/2 operations.
-        todo!("Make floor/1 fallible");
-    })
-}
-
-#[inline]
-pub(crate) fn ceiling(n1: Number, arena: &mut Arena) -> Number {
-    let n1 = neg(n1, arena);
-    let n1 = floor(n1, arena);
-
-    neg(n1, arena)
-}
-
-#[inline]
-pub(crate) fn truncate(n: Number, arena: &mut Arena) -> Number {
-    if n.is_negative() {
-        let n = abs(n, arena);
-        let n = floor(n, arena);
-
-        neg(n, arena)
-    } else {
-        floor(n, arena)
-    }
-}
-
-pub(crate) fn round(num: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
-    let res = match num {
-        Number::Fixnum(_) | Number::Integer(_) => num,
-        Number::Rational(rat) => Number::arena_from(rat.round(), arena),
-        Number::Float(f) => Number::Float(OrderedFloat((*f).round())),
-    };
-
-    // FIXME: make round/1 return EvalError
-    rnd_i(&res, arena).map_err(|err| -> MachineStubGen {
-        Box::new(move |machine_st| {
-            let eval_error = machine_st.evaluation_error(err);
-            let stub = functor_stub(atom!("round"), 1);
-
-            machine_st.error_form(eval_error, stub)
-        })
-    })
-}
-
-pub(crate) fn bitwise_complement(n1: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
-    match n1 {
-        Number::Fixnum(n) => Ok(Number::Fixnum(Fixnum::build_with(!n.get_num()))),
-        Number::Integer(n1) => Ok(Number::arena_from(Integer::from(!&*n1), arena)),
-        _ => {
-            let stub_gen = || {
-                let bitwise_atom = atom!("\\");
-                functor_stub(bitwise_atom, 2)
-            };
-
-            Err(numerical_type_error(ValidType::Integer, n1, stub_gen))
-        }
-    }
-}
-
 impl MachineState {
     #[inline]
     pub fn get_number(&mut self, at: &ArithmeticTerm) -> Result<Number, MachineStub> {
@@ -1301,71 +1154,16 @@ impl MachineState {
 
                         continue;
                     } else if arity == 1 {
-                        let a1 = self.interms.pop().unwrap();
+                        let evaluable_stub = functor_stub(name, 1);
+                        std::mem::drop(iter);
 
-                        match name {
-                            atom!("-") => self.interms.push(neg(a1, &mut self.arena)),
-                            atom!("+") => self.interms.push(a1),
-                            atom!("cos") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, cos(a1))
-                            ))),
-                            atom!("sin") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, sin(a1))
-                            ))),
-                            atom!("tan") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, tan(a1))
-                            ))),
-                            atom!("float_fractional_part") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, float_fractional_part(a1))
-                            ))),
-                            atom!("float_integer_part") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, float_integer_part(a1))
-                            ))),
-                            atom!("sqrt") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, sqrt(a1))
-                            ))),
-                            atom!("log") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, log(a1))
-                            ))),
-                            atom!("exp") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, exp(a1))
-                            ))),
-                            atom!("acos") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, acos(a1))
-                            ))),
-                            atom!("asin") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, asin(a1))
-                            ))),
-                            atom!("atan") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, atan(a1))
-                            ))),
-                            // atom!("abs") => self.interms.push(abs(a1, &mut self.arena)),
-                            atom!("float") => self.interms.push(Number::Float(OrderedFloat(
-                                drop_iter_on_err!(self, iter, float(a1))
-                            ))),
-                            atom!("truncate") => self.interms.push(truncate(a1, &mut self.arena)),
-                            atom!("round") => self.interms.push(drop_iter_on_err!(self, iter, round(a1, &mut self.arena))),
-                            atom!("ceiling") => self.interms.push(ceiling(a1, &mut self.arena)),
-                            atom!("floor") => self.interms.push(floor(a1, &mut self.arena)),
-                            atom!("\\") => self.interms.push(
-                                drop_iter_on_err!(self, iter, bitwise_complement(a1, &mut self.arena))
-                            ),
-                            atom!("sign") => self.interms.push(a1.sign()),
-                            _ => {
-                                let evaluable_stub = functor_stub(name, 1);
-                                std::mem::drop(iter);
+                        let type_error = self.type_error(
+                            ValidType::Evaluable,
+                            evaluable_stub,
+                        );
 
-                                let type_error = self.type_error(
-                                    ValidType::Evaluable,
-                                    evaluable_stub,
-                                );
-
-                                let stub = stub_gen();
-                                return Err(self.error_form(type_error, stub));
-                            }
-                        }
-
-                        continue;
+                        let stub = stub_gen();
+                        return Err(self.error_form(type_error, stub));
                     } else if arity == 0 {
                         match name {
                             atom!("pi") => {

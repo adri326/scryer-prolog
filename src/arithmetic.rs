@@ -195,38 +195,6 @@ impl<'a> ArithmeticEvaluator<'a> {
         }
     }
 
-    fn get_unary_instr(
-        &self,
-        name: Atom,
-        a1: ArithmeticTerm,
-        t: usize,
-    ) -> Result<Instruction, ArithmeticError> {
-        match name {
-            // atom!("abs") => Ok(Instruction::Abs(a1, t)),
-            atom!("-") => Ok(Instruction::Neg(a1, t)),
-            atom!("+") => Ok(Instruction::Plus(a1, t)),
-            atom!("cos") => Ok(Instruction::Cos(a1, t)),
-            atom!("sin") => Ok(Instruction::Sin(a1, t)),
-            atom!("tan") => Ok(Instruction::Tan(a1, t)),
-            atom!("log") => Ok(Instruction::Log(a1, t)),
-            atom!("exp") => Ok(Instruction::Exp(a1, t)),
-            atom!("sqrt") => Ok(Instruction::Sqrt(a1, t)),
-            atom!("acos") => Ok(Instruction::ACos(a1, t)),
-            atom!("asin") => Ok(Instruction::ASin(a1, t)),
-            atom!("atan") => Ok(Instruction::ATan(a1, t)),
-            atom!("float") => Ok(Instruction::Float(a1, t)),
-            atom!("truncate") => Ok(Instruction::Truncate(a1, t)),
-            atom!("round") => Ok(Instruction::Round(a1, t)),
-            atom!("ceiling") => Ok(Instruction::Ceiling(a1, t)),
-            atom!("floor") => Ok(Instruction::Floor(a1, t)),
-            atom!("float_integer_part") => Ok(Instruction::FloatIntegerPart(a1, t)),
-            atom!("float_fractional_part") => Ok(Instruction::FloatFractionalPart(a1, t)),
-            atom!("sign") => Ok(Instruction::Sign(a1, t)),
-            atom!("\\") => Ok(Instruction::BitwiseComplement(a1, t)),
-            _ => Err(ArithmeticError::NonEvaluableFunctor(Literal::Atom(name), 1)),
-        }
-    }
-
     fn get_binary_instr(
         &self,
         name: Atom,
@@ -309,9 +277,9 @@ impl<'a> ArithmeticEvaluator<'a> {
 
         match arity {
             1 => {
-                let a1 = terms.pop().unwrap();
+                let _ = terms.pop().unwrap();
 
-                self.get_unary_instr(name, a1, ninterm)
+                Err(ArithmeticError::NonEvaluableFunctor(Literal::Atom(name), 1))
             }
             2 => {
                 let a2 = terms.pop().unwrap();
@@ -370,6 +338,20 @@ impl<'a> ArithmeticEvaluator<'a> {
 
         Ok((code, self.interm.pop()))
     }
+}
+
+fn numerical_type_error(
+    valid_type: ValidType,
+    n: Number,
+    stub_name: Atom,
+    stub_arity: usize,
+) -> MachineStubGen {
+    Box::new(move |machine_st| {
+        let type_error = machine_st.type_error(valid_type, n);
+        let stub = functor_stub(stub_name, stub_arity);
+
+        machine_st.error_form(type_error, stub)
+    })
 }
 
 // integer division rounding function -- 9.1.3.1.
