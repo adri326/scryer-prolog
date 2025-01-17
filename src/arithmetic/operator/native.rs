@@ -461,6 +461,17 @@ mod binary {
 
     pub(crate) fn add(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, EvalError> {
         match (lhs, rhs) {
+            (Number::Float(n1), n2) | (n2, Number::Float(n1)) => {
+                // Any addition involving a float returns a float
+                let n2: f64 = n2.try_into()?;
+                let res = classify_float(*n1 + n2)?;
+                Ok(Number::Float(OrderedFloat(res)))
+            }
+            (Number::Rational(n1), n2) | (n2, Number::Rational(n1)) => {
+                // Any addition involving a rational and a non-float returns a rational
+                let n2: Rational = n2.try_into()?;
+                Ok(Number::arena_from(n2 + &*n1, arena))
+            }
             (Number::Fixnum(n1), Number::Fixnum(n2)) => Ok(
                 if let Some(result) = n1.get_num().checked_add(n2.get_num()) {
                     fixnum!(Number, result, arena)
@@ -476,35 +487,8 @@ mod binary {
                 Integer::from(n1.get_num()) + &*n2,
                 arena,
             )),
-            (Number::Fixnum(n1), Number::Rational(n2))
-            | (Number::Rational(n2), Number::Fixnum(n1)) => Ok(Number::arena_from(
-                Rational::from(n1.get_num()) + &*n2,
-                arena,
-            )),
-            (Number::Fixnum(n1), Number::Float(OrderedFloat(n2)))
-            | (Number::Float(OrderedFloat(n2)), Number::Fixnum(n1)) => {
-                Ok(Number::Float(add_f(float_fn_to_f(n1.get_num())?, n2)?))
-            }
             (Number::Integer(n1), Number::Integer(n2)) => {
                 Ok(Number::arena_from(&*n1 + &*n2, arena)) // add_i
-            }
-            (Number::Integer(n1), Number::Float(OrderedFloat(n2)))
-            | (Number::Float(OrderedFloat(n2)), Number::Integer(n1)) => {
-                Ok(Number::Float(add_f(float_i_to_f(&n1)?, n2)?))
-            }
-            (Number::Integer(n1), Number::Rational(n2))
-            | (Number::Rational(n2), Number::Integer(n1)) => {
-                Ok(Number::arena_from(&*n1 + &*n2, arena))
-            }
-            (Number::Rational(n1), Number::Float(OrderedFloat(n2)))
-            | (Number::Float(OrderedFloat(n2)), Number::Rational(n1)) => {
-                Ok(Number::Float(add_f(float_r_to_f(&n1)?, n2)?))
-            }
-            (Number::Float(OrderedFloat(f1)), Number::Float(OrderedFloat(f2))) => {
-                Ok(Number::Float(add_f(f1, f2)?))
-            }
-            (Number::Rational(r1), Number::Rational(r2)) => {
-                Ok(Number::arena_from(&*r1 + &*r2, arena))
             }
         }
     }
@@ -517,6 +501,17 @@ mod binary {
 
     pub(crate) fn mul(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, EvalError> {
         match (lhs, rhs) {
+            (Number::Float(n1), n2) | (n2, Number::Float(n1)) => {
+                // Any multiplication involving a float returns a float
+                let n2: f64 = n2.try_into()?;
+                let res = classify_float(*n1 * n2)?;
+                Ok(Number::Float(OrderedFloat(res)))
+            }
+            (Number::Rational(n1), n2) | (n2, Number::Rational(n1)) => {
+                // Any multiplication involving a rational and a non-float returns a rational
+                let n2: Rational = n2.try_into()?;
+                Ok(Number::arena_from(n2 * &*n1, arena))
+            }
             (Number::Fixnum(n1), Number::Fixnum(n2)) => Ok(
                 if let Some(result) = n1.get_num().checked_mul(n2.get_num()) {
                     fixnum!(Number, result, arena)
@@ -532,38 +527,9 @@ mod binary {
                 Integer::from(n1.get_num()) * &*n2,
                 arena,
             )),
-            (Number::Fixnum(n1), Number::Rational(n2))
-            | (Number::Rational(n2), Number::Fixnum(n1)) => Ok(Number::arena_from(
-                Rational::from(n1.get_num()) * &*n2,
-                arena,
-            )),
-            (Number::Fixnum(n1), Number::Float(OrderedFloat(n2)))
-            | (Number::Float(OrderedFloat(n2)), Number::Fixnum(n1)) => {
-                Ok(Number::Float(mul_f(float_fn_to_f(n1.get_num())?, n2)?))
-            }
             (Number::Integer(n1), Number::Integer(n2)) => {
                 let n1_clone: Integer = (*n1).clone();
                 Ok(Number::arena_from(Integer::from(n1_clone) * &*n2, arena)) // mul_i
-            }
-            (Number::Integer(n1), Number::Float(OrderedFloat(n2)))
-            | (Number::Float(OrderedFloat(n2)), Number::Integer(n1)) => {
-                Ok(Number::Float(mul_f(float_i_to_f(&n1)?, n2)?))
-            }
-            (Number::Integer(n1), Number::Rational(n2))
-            | (Number::Rational(n2), Number::Integer(n1)) => {
-                let n1_clone: Integer = (*n1).clone();
-                Ok(Number::arena_from(Rational::from(n1_clone) * &*n2, arena))
-            }
-            (Number::Rational(n1), Number::Float(OrderedFloat(n2)))
-            | (Number::Float(OrderedFloat(n2)), Number::Rational(n1)) => {
-                Ok(Number::Float(mul_f(float_r_to_f(&n1)?, n2)?))
-            }
-            (Number::Float(OrderedFloat(f1)), Number::Float(OrderedFloat(f2))) => {
-                Ok(Number::Float(mul_f(f1, f2)?))
-            }
-            (Number::Rational(r1), Number::Rational(r2)) => {
-                let r1_clone: Rational = (*r1).clone();
-                Ok(Number::arena_from(Rational::from(r1_clone) * &*r2, arena))
             }
         }
     }
