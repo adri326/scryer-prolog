@@ -394,7 +394,10 @@ mod unary {
     }
 
     #[inline]
-    pub(crate) fn float_fractional_part(num: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+    pub(crate) fn float_fractional_part(
+        num: Number,
+        _arena: &mut Arena,
+    ) -> Result<Number, EvalError> {
         float_template(num, |f| f.fract())
     }
 
@@ -413,18 +416,19 @@ mod unary {
     }
 
     #[inline]
-    pub(crate) fn bitwise_complement(num: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
+    pub(crate) fn bitwise_complement(
+        num: Number,
+        arena: &mut Arena,
+    ) -> Result<Number, MachineStubGen> {
         match num {
             Number::Fixnum(n) => Ok(Number::Fixnum(Fixnum::build_with(!n.get_num()))),
             Number::Integer(n) => Ok(Number::arena_from(Integer::from(!&*n), arena)),
-            _ => {
-                Err(numerical_type_error(
-                    ValidType::Integer,
-                    num,
-                    atom!("\\"),
-                    2
-                ))
-            }
+            _ => Err(numerical_type_error(
+                ValidType::Integer,
+                num,
+                atom!("\\"),
+                2,
+            )),
         }
     }
 
@@ -449,18 +453,16 @@ mod binary {
                     )
                 },
             ),
-            (Number::Fixnum(n1), Number::Integer(n2)) | (Number::Integer(n2), Number::Fixnum(n1)) => {
-                Ok(Number::arena_from(
-                    Integer::from(n1.get_num()) + &*n2,
-                    arena,
-                ))
-            }
-            (Number::Fixnum(n1), Number::Rational(n2)) | (Number::Rational(n2), Number::Fixnum(n1)) => {
-                Ok(Number::arena_from(
-                    Rational::from(n1.get_num()) + &*n2,
-                    arena,
-                ))
-            }
+            (Number::Fixnum(n1), Number::Integer(n2))
+            | (Number::Integer(n2), Number::Fixnum(n1)) => Ok(Number::arena_from(
+                Integer::from(n1.get_num()) + &*n2,
+                arena,
+            )),
+            (Number::Fixnum(n1), Number::Rational(n2))
+            | (Number::Rational(n2), Number::Fixnum(n1)) => Ok(Number::arena_from(
+                Rational::from(n1.get_num()) + &*n2,
+                arena,
+            )),
             (Number::Fixnum(n1), Number::Float(OrderedFloat(n2)))
             | (Number::Float(OrderedFloat(n2)), Number::Fixnum(n1)) => {
                 Ok(Number::Float(add_f(float_fn_to_f(n1.get_num())?, n2)?))
@@ -473,7 +475,9 @@ mod binary {
                 Ok(Number::Float(add_f(float_i_to_f(&n1)?, n2)?))
             }
             (Number::Integer(n1), Number::Rational(n2))
-            | (Number::Rational(n2), Number::Integer(n1)) => Ok(Number::arena_from(&*n1 + &*n2, arena)),
+            | (Number::Rational(n2), Number::Integer(n1)) => {
+                Ok(Number::arena_from(&*n1 + &*n2, arena))
+            }
             (Number::Rational(n1), Number::Float(OrderedFloat(n2)))
             | (Number::Float(OrderedFloat(n2)), Number::Rational(n1)) => {
                 Ok(Number::Float(add_f(float_r_to_f(&n1)?, n2)?))
@@ -481,7 +485,9 @@ mod binary {
             (Number::Float(OrderedFloat(f1)), Number::Float(OrderedFloat(f2))) => {
                 Ok(Number::Float(add_f(f1, f2)?))
             }
-            (Number::Rational(r1), Number::Rational(r2)) => Ok(Number::arena_from(&*r1 + &*r2, arena)),
+            (Number::Rational(r1), Number::Rational(r2)) => {
+                Ok(Number::arena_from(&*r1 + &*r2, arena))
+            }
         }
     }
 }

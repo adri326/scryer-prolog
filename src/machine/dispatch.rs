@@ -5062,29 +5062,27 @@ impl Machine {
                         step_or_fail!(self, self.machine_st.p = self.machine_st.cp);
                     }
 
-                    native_op @ (
-                        | Instruction::Neg(_, _)
-                        | Instruction::Plus(_, _)
-                        | Instruction::Float(_, _)
-                        | Instruction::Abs(_, _)
-                        | Instruction::Floor(_, _)
-                        | Instruction::Truncate(_, _)
-                        | Instruction::Ceiling(_, _)
-                        | Instruction::Round(_, _)
-                        | Instruction::Cos(_, _)
-                        | Instruction::Sin(_, _)
-                        | Instruction::Tan(_, _)
-                        | Instruction::ACos(_, _)
-                        | Instruction::ASin(_, _)
-                        | Instruction::ATan(_, _)
-                        | Instruction::Log(_, _)
-                        | Instruction::Exp(_, _)
-                        | Instruction::Sqrt(_, _)
-                        | Instruction::FloatFractionalPart(_, _)
-                        | Instruction::FloatIntegerPart(_, _)
-                        | Instruction::BitwiseComplement(_, _)
-                        | Instruction::Sign(_, _)
-                    ) => {
+                    native_op @ (Instruction::Neg(_, _)
+                    | Instruction::Plus(_, _)
+                    | Instruction::Float(_, _)
+                    | Instruction::Abs(_, _)
+                    | Instruction::Floor(_, _)
+                    | Instruction::Truncate(_, _)
+                    | Instruction::Ceiling(_, _)
+                    | Instruction::Round(_, _)
+                    | Instruction::Cos(_, _)
+                    | Instruction::Sin(_, _)
+                    | Instruction::Tan(_, _)
+                    | Instruction::ACos(_, _)
+                    | Instruction::ASin(_, _)
+                    | Instruction::ATan(_, _)
+                    | Instruction::Log(_, _)
+                    | Instruction::Exp(_, _)
+                    | Instruction::Sqrt(_, _)
+                    | Instruction::FloatFractionalPart(_, _)
+                    | Instruction::FloatIntegerPart(_, _)
+                    | Instruction::BitwiseComplement(_, _)
+                    | Instruction::Sign(_, _)) => {
                         assert!(native_op.is_native_op());
                         try_or_throw!(
                             self.machine_st,
