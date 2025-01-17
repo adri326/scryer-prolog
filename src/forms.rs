@@ -1,4 +1,6 @@
 use crate::arena::*;
+use crate::arithmetic::float_i_to_f;
+use crate::arithmetic::float_r_to_f;
 use crate::atom_table::*;
 use crate::instructions::*;
 use crate::machine::disjuncts::VarData;
@@ -11,6 +13,7 @@ use crate::parser::dashu::{Integer, Rational};
 use crate::parser::parser::CompositeOpDesc;
 use crate::types::*;
 
+use dashu::base::ConversionError;
 use dashu::base::Signed;
 use fxhash::FxBuildHasher;
 
@@ -716,6 +719,37 @@ impl ArenaFrom<Number> for HeapCellValue {
             Number::Integer(n) => typed_arena_ptr_as_cell!(n),
             Number::Float(OrderedFloat(n)) => HeapCellValue::from(float_alloc!(n, arena)),
             Number::Rational(n) => typed_arena_ptr_as_cell!(n),
+        }
+    }
+}
+
+impl TryFrom<Number> for f64 {
+    type Error = EvalError;
+
+    #[inline]
+    fn try_from(value: Number) -> Result<Self, Self::Error> {
+        match value {
+            Number::Float(f) => Ok(*f),
+            Number::Integer(bigint) => float_i_to_f(&*bigint),
+            Number::Rational(rational) => float_r_to_f(&*rational),
+            Number::Fixnum(fixnum) => Ok(fixnum.get_num() as f64),
+        }
+    }
+}
+
+impl TryFrom<Number> for Rational {
+    type Error = EvalError;
+
+    #[inline]
+    fn try_from(value: Number) -> Result<Self, Self::Error> {
+        match value {
+            Number::Float(float) => Rational::try_from(*float).map_err(|err| match err {
+                ConversionError::LossOfPrecision => EvalError::FloatOverflow,
+                ConversionError::OutOfBounds => EvalError::FloatOverflow,
+            }),
+            Number::Integer(bigint) => Ok(Rational::from((*bigint).clone())),
+            Number::Rational(rational) => Ok((*rational).clone()),
+            Number::Fixnum(num) => Ok(Rational::from(num.get_num())),
         }
     }
 }
