@@ -589,45 +589,6 @@ impl Machine {
                         // let arity = std::cmp::max(arity, self.machine_st.num_of_args);
                         self.run_verify_attr_interrupt(arity);
                     }
-                    &Instruction::Add(ref a1, ref a2, t) => {
-                        let stub_gen = || functor_stub(atom!("is"), 2);
-
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-                        let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            try_numeric_result!(add(n1, n2, &mut self.machine_st.arena), stub_gen)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Sub(ref a1, ref a2, t) => {
-                        let stub_gen = || functor_stub(atom!("is"), 2);
-
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-                        let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            try_numeric_result!(sub(n1, n2, &mut self.machine_st.arena), stub_gen)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Mul(ref a1, ref a2, t) => {
-                        let stub_gen = || functor_stub(atom!("is"), 2);
-
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-                        let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            try_numeric_result!(mul(n1, n2, &mut self.machine_st.arena), stub_gen)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
                     &Instruction::Max(ref a1, ref a2, t) => {
                         let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
                         let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
@@ -5082,7 +5043,10 @@ impl Machine {
                     | Instruction::FloatFractionalPart(_, _)
                     | Instruction::FloatIntegerPart(_, _)
                     | Instruction::BitwiseComplement(_, _)
-                    | Instruction::Sign(_, _)) => {
+                    | Instruction::Sign(_, _)
+                    | Instruction::Add(_, _, _)
+                    | Instruction::Sub(_, _, _)
+                    | Instruction::Mul(_, _, _)) => {
                         assert!(native_op.is_native_op());
                         try_or_throw!(
                             self.machine_st,

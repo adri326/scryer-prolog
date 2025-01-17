@@ -203,15 +203,12 @@ impl<'a> ArithmeticEvaluator<'a> {
         t: usize,
     ) -> Result<Instruction, ArithmeticError> {
         match name {
-            atom!("+") => Ok(Instruction::Add(a1, a2, t)),
-            atom!("-") => Ok(Instruction::Sub(a1, a2, t)),
             atom!("/") => Ok(Instruction::Div(a1, a2, t)),
             atom!("//") => Ok(Instruction::IDiv(a1, a2, t)),
             atom!("max") => Ok(Instruction::Max(a1, a2, t)),
             atom!("min") => Ok(Instruction::Min(a1, a2, t)),
             atom!("div") => Ok(Instruction::IntFloorDiv(a1, a2, t)),
             atom!("rdiv") => Ok(Instruction::RDiv(a1, a2, t)),
-            atom!("*") => Ok(Instruction::Mul(a1, a2, t)),
             atom!("**") => Ok(Instruction::Pow(a1, a2, t)),
             atom!("^") => Ok(Instruction::IntPow(a1, a2, t)),
             atom!(">>") => Ok(Instruction::Shr(a1, a2, t)),
