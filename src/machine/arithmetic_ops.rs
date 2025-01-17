@@ -203,61 +203,6 @@ pub(crate) fn sub(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number,
     add(lhs, neg_result, arena)
 }
 
-pub(crate) fn mul(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, EvalError> {
-    match (lhs, rhs) {
-        (Number::Fixnum(n1), Number::Fixnum(n2)) => Ok(
-            if let Some(result) = n1.get_num().checked_mul(n2.get_num()) {
-                fixnum!(Number, result, arena)
-            } else {
-                Number::arena_from(
-                    Integer::from(n1.get_num()) * Integer::from(n2.get_num()),
-                    arena,
-                )
-            },
-        ),
-        (Number::Fixnum(n1), Number::Integer(n2)) | (Number::Integer(n2), Number::Fixnum(n1)) => {
-            Ok(Number::arena_from(
-                Integer::from(n1.get_num()) * &*n2,
-                arena,
-            ))
-        }
-        (Number::Fixnum(n1), Number::Rational(n2)) | (Number::Rational(n2), Number::Fixnum(n1)) => {
-            Ok(Number::arena_from(
-                Rational::from(n1.get_num()) * &*n2,
-                arena,
-            ))
-        }
-        (Number::Fixnum(n1), Number::Float(OrderedFloat(n2)))
-        | (Number::Float(OrderedFloat(n2)), Number::Fixnum(n1)) => {
-            Ok(Number::Float(mul_f(float_fn_to_f(n1.get_num())?, n2)?))
-        }
-        (Number::Integer(n1), Number::Integer(n2)) => {
-            let n1_clone: Integer = (*n1).clone();
-            Ok(Number::arena_from(Integer::from(n1_clone) * &*n2, arena)) // mul_i
-        }
-        (Number::Integer(n1), Number::Float(OrderedFloat(n2)))
-        | (Number::Float(OrderedFloat(n2)), Number::Integer(n1)) => {
-            Ok(Number::Float(mul_f(float_i_to_f(&n1)?, n2)?))
-        }
-        (Number::Integer(n1), Number::Rational(n2))
-        | (Number::Rational(n2), Number::Integer(n1)) => {
-            let n1_clone: Integer = (*n1).clone();
-            Ok(Number::arena_from(Rational::from(n1_clone) * &*n2, arena))
-        }
-        (Number::Rational(n1), Number::Float(OrderedFloat(n2)))
-        | (Number::Float(OrderedFloat(n2)), Number::Rational(n1)) => {
-            Ok(Number::Float(mul_f(float_r_to_f(&n1)?, n2)?))
-        }
-        (Number::Float(OrderedFloat(f1)), Number::Float(OrderedFloat(f2))) => {
-            Ok(Number::Float(mul_f(f1, f2)?))
-        }
-        (Number::Rational(r1), Number::Rational(r2)) => {
-            let r1_clone: Rational = (*r1).clone();
-            Ok(Number::arena_from(Rational::from(r1_clone) * &*r2, arena))
-        }
-    }
-}
-
 pub(crate) fn div(n1: Number, n2: Number) -> Result<Number, MachineStubGen> {
     let stub_gen = || functor_stub(atom!("/"), 2);
 
@@ -1058,21 +1003,6 @@ impl MachineState {
                         let a1 = self.interms.pop().unwrap();
 
                         match name {
-                            atom!("+") => self.interms.push(drop_iter_on_err!(
-                                self,
-                                iter,
-                                try_numeric_result!(add(a1, a2, &mut self.arena), stub_gen)
-                            )),
-                            atom!("-") => self.interms.push(drop_iter_on_err!(
-                                self,
-                                iter,
-                                try_numeric_result!(sub(a1, a2, &mut self.arena), stub_gen)
-                            )),
-                            atom!("*") => self.interms.push(drop_iter_on_err!(
-                                self,
-                                iter,
-                                try_numeric_result!(mul(a1, a2, &mut self.arena), stub_gen)
-                            )),
                             atom!("/") => self.interms.push(
                                 drop_iter_on_err!(self, iter, div(a1, a2))
                             ),

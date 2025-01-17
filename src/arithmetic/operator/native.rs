@@ -261,6 +261,10 @@ native_ops!(
     Instruction::FloatIntegerPart(a, t) => ("float_integer_part", unary::float_integer_part),
     Instruction::BitwiseComplement(a, t) => ("\\", unary::bitwise_complement),
     Instruction::Sign(a, t) => ("sign", unary::sign),
+
+    Instruction::Add(a, b, t) => ("+", binary::add),
+    Instruction::Mul(a, b, t) => ("*", binary::mul),
+    Instruction::Sub(a, b, t) => ("-", binary::sub),
 );
 
 mod unary {
@@ -449,5 +453,118 @@ mod unary {
     #[inline]
     pub(crate) fn sign(num: Number, _arena: &mut Arena) -> Result<Number, Infallible> {
         Ok(num.sign())
+    }
+}
+
+mod binary {
+    use super::*;
+
+    pub(crate) fn add(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, EvalError> {
+        match (lhs, rhs) {
+            (Number::Fixnum(n1), Number::Fixnum(n2)) => Ok(
+                if let Some(result) = n1.get_num().checked_add(n2.get_num()) {
+                    fixnum!(Number, result, arena)
+                } else {
+                    Number::arena_from(
+                        Integer::from(n1.get_num()) + Integer::from(n2.get_num()),
+                        arena,
+                    )
+                },
+            ),
+            (Number::Fixnum(n1), Number::Integer(n2))
+            | (Number::Integer(n2), Number::Fixnum(n1)) => Ok(Number::arena_from(
+                Integer::from(n1.get_num()) + &*n2,
+                arena,
+            )),
+            (Number::Fixnum(n1), Number::Rational(n2))
+            | (Number::Rational(n2), Number::Fixnum(n1)) => Ok(Number::arena_from(
+                Rational::from(n1.get_num()) + &*n2,
+                arena,
+            )),
+            (Number::Fixnum(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Fixnum(n1)) => {
+                Ok(Number::Float(add_f(float_fn_to_f(n1.get_num())?, n2)?))
+            }
+            (Number::Integer(n1), Number::Integer(n2)) => {
+                Ok(Number::arena_from(&*n1 + &*n2, arena)) // add_i
+            }
+            (Number::Integer(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Integer(n1)) => {
+                Ok(Number::Float(add_f(float_i_to_f(&n1)?, n2)?))
+            }
+            (Number::Integer(n1), Number::Rational(n2))
+            | (Number::Rational(n2), Number::Integer(n1)) => {
+                Ok(Number::arena_from(&*n1 + &*n2, arena))
+            }
+            (Number::Rational(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Rational(n1)) => {
+                Ok(Number::Float(add_f(float_r_to_f(&n1)?, n2)?))
+            }
+            (Number::Float(OrderedFloat(f1)), Number::Float(OrderedFloat(f2))) => {
+                Ok(Number::Float(add_f(f1, f2)?))
+            }
+            (Number::Rational(r1), Number::Rational(r2)) => {
+                Ok(Number::arena_from(&*r1 + &*r2, arena))
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn sub(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, EvalError> {
+        let neg_result = super::unary::neg(rhs, arena).map_err::<EvalError, _>(Into::into)?;
+        add(lhs, neg_result, arena)
+    }
+
+    pub(crate) fn mul(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, EvalError> {
+        match (lhs, rhs) {
+            (Number::Fixnum(n1), Number::Fixnum(n2)) => Ok(
+                if let Some(result) = n1.get_num().checked_mul(n2.get_num()) {
+                    fixnum!(Number, result, arena)
+                } else {
+                    Number::arena_from(
+                        Integer::from(n1.get_num()) * Integer::from(n2.get_num()),
+                        arena,
+                    )
+                },
+            ),
+            (Number::Fixnum(n1), Number::Integer(n2))
+            | (Number::Integer(n2), Number::Fixnum(n1)) => Ok(Number::arena_from(
+                Integer::from(n1.get_num()) * &*n2,
+                arena,
+            )),
+            (Number::Fixnum(n1), Number::Rational(n2))
+            | (Number::Rational(n2), Number::Fixnum(n1)) => Ok(Number::arena_from(
+                Rational::from(n1.get_num()) * &*n2,
+                arena,
+            )),
+            (Number::Fixnum(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Fixnum(n1)) => {
+                Ok(Number::Float(mul_f(float_fn_to_f(n1.get_num())?, n2)?))
+            }
+            (Number::Integer(n1), Number::Integer(n2)) => {
+                let n1_clone: Integer = (*n1).clone();
+                Ok(Number::arena_from(Integer::from(n1_clone) * &*n2, arena)) // mul_i
+            }
+            (Number::Integer(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Integer(n1)) => {
+                Ok(Number::Float(mul_f(float_i_to_f(&n1)?, n2)?))
+            }
+            (Number::Integer(n1), Number::Rational(n2))
+            | (Number::Rational(n2), Number::Integer(n1)) => {
+                let n1_clone: Integer = (*n1).clone();
+                Ok(Number::arena_from(Rational::from(n1_clone) * &*n2, arena))
+            }
+            (Number::Rational(n1), Number::Float(OrderedFloat(n2)))
+            | (Number::Float(OrderedFloat(n2)), Number::Rational(n1)) => {
+                Ok(Number::Float(mul_f(float_r_to_f(&n1)?, n2)?))
+            }
+            (Number::Float(OrderedFloat(f1)), Number::Float(OrderedFloat(f2))) => {
+                Ok(Number::Float(mul_f(f1, f2)?))
+            }
+            (Number::Rational(r1), Number::Rational(r2)) => {
+                let r1_clone: Rational = (*r1).clone();
+                Ok(Number::arena_from(Rational::from(r1_clone) * &*r2, arena))
+            }
+        }
     }
 }

@@ -882,6 +882,12 @@ pub enum EvalError {
     ZeroDivisor,
 }
 
+impl From<std::convert::Infallible> for EvalError {
+    fn from(value: std::convert::Infallible) -> Self {
+        match value {}
+    }
+}
+
 impl EvalError {
     pub(crate) fn as_atom(self) -> Atom {
         match self {
