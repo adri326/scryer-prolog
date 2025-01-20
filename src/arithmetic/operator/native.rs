@@ -269,7 +269,8 @@ mod unary {
     #[inline(always)]
     fn float_template<F: Fn(f64) -> f64>(num: Number, cb: F) -> Result<Number, EvalError> {
         let float = result_f(&num)?;
-        Ok(Number::Float(OrderedFloat(cb(float))))
+        let res = classify_float(cb(float))?;
+        Ok(Number::Float(OrderedFloat(res)))
     }
 
     #[inline(always)]
