@@ -468,7 +468,11 @@ pub(crate) fn max(n1: Number, n2: Number) -> Result<Number, MachineStubGen> {
 
             match OrderedFloat(f1).cmp(&OrderedFloat(f2)) {
                 cmp::Ordering::Less => Ok(n2),
-                cmp::Ordering::Equal => Ok(Number::Float(OrderedFloat(f1))),
+                cmp::Ordering::Equal => {
+                    // Note: n1 and n2 were compared as floats,
+                    // so we return the second argument as a floating point value.
+                    Ok(Number::Float(OrderedFloat(f2)))
+                }
                 cmp::Ordering::Greater => Ok(n1),
             }
         }
@@ -511,7 +515,11 @@ pub(crate) fn min(n1: Number, n2: Number) -> Result<Number, MachineStubGen> {
 
             match OrderedFloat(f1).cmp(&OrderedFloat(f2)) {
                 cmp::Ordering::Less => Ok(n1),
-                cmp::Ordering::Equal => Ok(Number::Float(OrderedFloat(f1))),
+                cmp::Ordering::Equal => {
+                    // Note: n1 and n2 were compared as floats,
+                    // so we return the first argument as a floating point value.
+                    Ok(Number::Float(OrderedFloat(f1)))
+                }
                 cmp::Ordering::Greater => Ok(n2),
             }
         }
