@@ -1041,7 +1041,12 @@ pub(crate) fn sqrt(n1: Number) -> Result<f64, MachineStubGen> {
 
 #[inline]
 pub(crate) fn floor(n1: Number, arena: &mut Arena) -> Number {
-    rnd_i(&n1, arena)
+    rnd_i(&n1, arena).unwrap_or_else(|_err| {
+        // FIXME: Currently floor/1 (and several call sites) are infallible,
+        // but the failing cases (when `n1` is `Number::Float(NAN)` or `Number::Float(INFINITY)`)
+        // are not reachable with standard is/2 operations.
+        todo!("Make floor/1 fallible");
+    })
 }
 
 #[inline]
@@ -1071,7 +1076,15 @@ pub(crate) fn round(num: Number, arena: &mut Arena) -> Result<Number, MachineStu
         Number::Float(f) => Number::Float(OrderedFloat((*f).round())),
     };
 
-    Ok(rnd_i(&res, arena))
+    // FIXME: make round/1 return EvalError
+    rnd_i(&res, arena).map_err(|err| -> MachineStubGen {
+        Box::new(move |machine_st| {
+            let eval_error = machine_st.evaluation_error(err);
+            let stub = functor_stub(atom!("is"), 2);
+
+            machine_st.error_form(eval_error, stub)
+        })
+    })
 }
 
 pub(crate) fn bitwise_complement(n1: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
