@@ -414,7 +414,7 @@ pub(crate) fn result_f(n: &Number) -> Result<f64, EvalError> {
     classify_float(rnd_f(n))
 }
 
-fn classify_float(f: f64) -> Result<f64, EvalError> {
+pub(crate) fn classify_float(f: f64) -> Result<f64, EvalError> {
     match f.classify() {
         FpCategory::Normal | FpCategory::Zero => Ok(f),
         FpCategory::Infinite => {
@@ -467,65 +467,16 @@ impl Div<Number> for Number {
     type Output = Result<Number, EvalError>;
 
     fn div(self, rhs: Number) -> Self::Output {
-        match (self, rhs) {
-            (Number::Fixnum(n1), Number::Fixnum(n2)) => Ok(Number::Float(div_f(
-                float_fn_to_f(n1.get_num())?,
-                float_fn_to_f(n2.get_num())?,
-            )?)),
-            (Number::Fixnum(n1), Number::Integer(n2)) => Ok(Number::Float(div_f(
-                float_fn_to_f(n1.get_num())?,
-                float_i_to_f(&n2)?,
-            )?)),
-            (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::Float(div_f(
-                float_i_to_f(&n1)?,
-                float_fn_to_f(n2.get_num())?,
-            )?)),
-            (Number::Fixnum(n1), Number::Rational(n2)) => Ok(Number::Float(div_f(
-                float_fn_to_f(n1.get_num())?,
-                float_r_to_f(&n2)?,
-            )?)),
-            (Number::Rational(n1), Number::Fixnum(n2)) => Ok(Number::Float(div_f(
-                float_r_to_f(&n1)?,
-                float_fn_to_f(n2.get_num())?,
-            )?)),
-            (Number::Fixnum(n1), Number::Float(OrderedFloat(n2))) => {
-                Ok(Number::Float(div_f(float_fn_to_f(n1.get_num())?, n2)?))
-            }
-            (Number::Float(OrderedFloat(n1)), Number::Fixnum(n2)) => {
-                Ok(Number::Float(div_f(n1, float_fn_to_f(n2.get_num())?)?))
-            }
-            (Number::Integer(n1), Number::Integer(n2)) => Ok(Number::Float(div_f(
-                float_i_to_f(&n1)?,
-                float_i_to_f(&n2)?,
-            )?)),
-            (Number::Integer(n1), Number::Float(OrderedFloat(n2))) => {
-                Ok(Number::Float(div_f(float_i_to_f(&n1)?, n2)?))
-            }
-            (Number::Float(OrderedFloat(n2)), Number::Integer(n1)) => {
-                Ok(Number::Float(div_f(n2, float_i_to_f(&n1)?)?))
-            }
-            (Number::Integer(n1), Number::Rational(n2)) => Ok(Number::Float(div_f(
-                float_i_to_f(&n1)?,
-                float_r_to_f(&n2)?,
-            )?)),
-            (Number::Rational(n2), Number::Integer(n1)) => Ok(Number::Float(div_f(
-                float_r_to_f(&n2)?,
-                float_i_to_f(&n1)?,
-            )?)),
-            (Number::Rational(n1), Number::Float(OrderedFloat(n2))) => {
-                Ok(Number::Float(div_f(float_r_to_f(&n1)?, n2)?))
-            }
-            (Number::Float(OrderedFloat(n2)), Number::Rational(n1)) => {
-                Ok(Number::Float(div_f(n2, float_r_to_f(&n1)?)?))
-            }
-            (Number::Float(OrderedFloat(f1)), Number::Float(OrderedFloat(f2))) => {
-                Ok(Number::Float(div_f(f1, f2)?))
-            }
-            (Number::Rational(r1), Number::Rational(r2)) => Ok(Number::Float(div_f(
-                float_r_to_f(&r1)?,
-                float_r_to_f(&r2)?,
-            )?)),
+        let lhs: f64 = self.try_into()?;
+        let rhs: f64 = rhs.try_into()?;
+
+        if FpCategory::Zero == rhs.classify() {
+            return Err(EvalError::ZeroDivisor);
         }
+
+        classify_float(lhs / rhs)
+            .map(OrderedFloat)
+            .map(Number::Float)
     }
 }
 

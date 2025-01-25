@@ -1,6 +1,4 @@
 use crate::arena::*;
-use crate::arithmetic::float_i_to_f;
-use crate::arithmetic::float_r_to_f;
 use crate::atom_table::*;
 use crate::instructions::*;
 use crate::machine::disjuncts::VarData;
@@ -728,12 +726,12 @@ impl TryFrom<Number> for f64 {
 
     #[inline]
     fn try_from(value: Number) -> Result<Self, Self::Error> {
-        match value {
-            Number::Float(f) => Ok(*f),
-            Number::Integer(bigint) => float_i_to_f(&*bigint),
-            Number::Rational(rational) => float_r_to_f(&*rational),
-            Number::Fixnum(fixnum) => Ok(fixnum.get_num() as f64),
-        }
+        crate::arithmetic::classify_float(match value {
+            Number::Float(OrderedFloat(float)) => float,
+            Number::Integer(int) => int.to_f64().value(),
+            Number::Rational(rat) => rat.to_f64().value(),
+            Number::Fixnum(fixnum) => fixnum.get_num() as f64,
+        })
     }
 }
 

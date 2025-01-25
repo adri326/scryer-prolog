@@ -203,16 +203,6 @@ pub(crate) fn sub(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number,
     add(lhs, neg_result, arena)
 }
 
-pub(crate) fn div(n1: Number, n2: Number) -> Result<Number, MachineStubGen> {
-    let stub_gen = || functor_stub(atom!("/"), 2);
-
-    if n2.is_zero() {
-        Err(zero_divisor_eval_error(stub_gen))
-    } else {
-        try_numeric_result!(n1 / n2, stub_gen)
-    }
-}
-
 pub(crate) fn float_pow(n1: Number, n2: Number) -> Result<Number, MachineStubGen> {
     let f1 = result_f(&n1);
     let f2 = result_f(&n2);
@@ -1003,9 +993,6 @@ impl MachineState {
                         let a1 = self.interms.pop().unwrap();
 
                         match name {
-                            atom!("/") => self.interms.push(
-                                drop_iter_on_err!(self, iter, div(a1, a2))
-                            ),
                             atom!("**") => self.interms.push(
                                 drop_iter_on_err!(self, iter, pow(a1, a2, atom!("is")))
                             ),

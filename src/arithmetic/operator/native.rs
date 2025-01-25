@@ -263,8 +263,9 @@ native_ops!(
     Instruction::Sign(a, t) => ("sign", unary::sign),
 
     Instruction::Add(a, b, t) => ("+", binary::add),
-    Instruction::Mul(a, b, t) => ("*", binary::mul),
     Instruction::Sub(a, b, t) => ("-", binary::sub),
+    Instruction::Mul(a, b, t) => ("*", binary::mul),
+    Instruction::Div(a, b, t) => ("/", binary::div),
 );
 
 mod unary {
@@ -532,5 +533,10 @@ mod binary {
                 Ok(Number::arena_from(Integer::from(n1_clone) * &*n2, arena)) // mul_i
             }
         }
+    }
+
+    #[inline]
+    pub(crate) fn div(n1: Number, n2: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
+        n1 / n2
     }
 }
