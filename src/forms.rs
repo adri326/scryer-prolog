@@ -830,7 +830,7 @@ impl Number {
             &Number::Float(float) => match Integer::try_from(*float) {
                 Err(ConversionError::LossOfPrecision) => Err(EvalError::FloatOverflow),
                 Err(ConversionError::OutOfBounds) => Err(EvalError::FloatOverflow),
-                Ok(int) => Ok(Cow::Owned(int))
+                Ok(int) => Ok(Cow::Owned(int)),
             },
             Number::Integer(int) => Ok(Cow::Borrowed(&**int)),
             &Number::Rational(rat) => Ok(Cow::Owned(rat.floor())),
@@ -844,7 +844,7 @@ impl Number {
             &Number::Float(float) => match Rational::try_from(*float) {
                 Err(ConversionError::LossOfPrecision) => Err(EvalError::FloatOverflow),
                 Err(ConversionError::OutOfBounds) => Err(EvalError::FloatOverflow),
-                Ok(rat) => Ok(Cow::Owned(rat))
+                Ok(rat) => Ok(Cow::Owned(rat)),
             },
             &Number::Integer(bigint) => Ok(Cow::Owned(Rational::from((*bigint).clone()))),
             Number::Rational(rational) => Ok(Cow::Borrowed(&**rational)),
