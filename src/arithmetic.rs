@@ -30,6 +30,7 @@ use std::vec::Vec;
 
 mod operator;
 pub(crate) use operator::dispatch_native_op;
+use operator::macros::binary_op;
 pub use operator::ArithmeticOperatorTable;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -565,36 +566,20 @@ impl PartialOrd for Number {
 
 impl Ord for Number {
     fn cmp(&self, rhs: &Number) -> Ordering {
-        match (self, rhs) {
-            (&Number::Fixnum(n1), &Number::Fixnum(n2)) => n1.get_num().cmp(&n2.get_num()),
-            (&Number::Fixnum(n1), Number::Integer(n2)) => Integer::from(n1.get_num()).cmp(n2),
-            (Number::Integer(n1), &Number::Fixnum(n2)) => (**n1).cmp(&Integer::from(n2.get_num())),
-            (&Number::Fixnum(n1), Number::Rational(n2)) => Rational::from(n1.get_num()).cmp(n2),
-            (Number::Rational(n1), &Number::Fixnum(n2)) => {
-                (**n1).cmp(&Rational::from(n2.get_num()))
+        binary_op!((*self, *rhs), {
+            NumberCategory::Float(lhs, rhs) => {
+                OrderedFloat(lhs).cmp(&OrderedFloat(rhs))
+            },
+            NumberCategory::Rational(lhs, rhs) => {
+                lhs.cmp(&rhs)
+            },
+            NumberCategory::Integer(lhs, rhs) => {
+                lhs.cmp(&rhs)
+            },
+            NumberCategory::Fixnum(lhs, rhs) => {
+                lhs.cmp(&rhs)
             }
-            (&Number::Fixnum(n1), &Number::Float(n2)) => OrderedFloat(n1.get_num() as f64).cmp(&n2),
-            (&Number::Float(n1), &Number::Fixnum(n2)) => n1.cmp(&OrderedFloat(n2.get_num() as f64)),
-            (&Number::Integer(n1), &Number::Integer(n2)) => (*n1).cmp(&*n2),
-            (&Number::Integer(n1), Number::Float(n2)) => OrderedFloat(n1.to_f64().value()).cmp(n2),
-            (&Number::Float(n1), Number::Integer(ref n2)) => {
-                n1.cmp(&OrderedFloat(n2.to_f64().value()))
-            }
-            (&Number::Integer(n1), &Number::Rational(n2)) => {
-                (*n1).num_partial_cmp(&*n2).unwrap_or(Ordering::Less)
-            }
-            (&Number::Rational(n1), &Number::Integer(n2)) => {
-                (*n1).num_partial_cmp(&*n2).unwrap_or(Ordering::Less)
-            }
-            (&Number::Rational(n1), &Number::Float(n2)) => {
-                OrderedFloat(n1.to_f64().value()).cmp(&n2)
-            }
-            (&Number::Float(n1), &Number::Rational(n2)) => {
-                n1.cmp(&OrderedFloat(n2.to_f64().value()))
-            }
-            (&Number::Float(f1), &Number::Float(f2)) => f1.cmp(&f2),
-            (&Number::Rational(r1), &Number::Rational(r2)) => (*r1).cmp(&*r2),
-        }
+        })
     }
 }
 

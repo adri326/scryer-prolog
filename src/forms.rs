@@ -816,6 +816,7 @@ impl TryFrom<Number> for i64 {
 }
 
 impl Number {
+    #[inline(always)]
     pub(crate) fn category(&self) -> NumberCategory {
         match self {
             Number::Float(_) => NumberCategory::Float,
@@ -896,6 +897,7 @@ impl Number {
 
 impl NumberCategory {
     /// Returns the smallest number category that can encode both numbers.
+    #[inline(always)]
     pub(crate) fn meet(&self, other: NumberCategory) -> NumberCategory {
         std::cmp::max(*self, other)
     }

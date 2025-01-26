@@ -4,6 +4,8 @@ mod native;
 pub(crate) use native::dispatch_native_op;
 use native::NativeArithmeticOperator;
 
+pub(crate) mod macros;
+
 use super::*;
 
 #[derive(Clone, Debug)]
