@@ -600,6 +600,31 @@ pub enum Number {
     Fixnum(Fixnum),
 }
 
+/// The kind of representation used for a [`Number`],
+/// used by binary operators to agree on a common representation,
+/// for instance using [`NumberCategory::meet()`].
+///
+/// These number categories are ordered, where greater categories
+/// can represent more values, at the cost of computational overhead or precision.
+///
+/// ## Upcasting
+///
+/// The different implementations converting a [`Number`] into the inner representations
+/// are generally infallible when the resulting type is of a greater category, namely:
+///
+/// - `num.try_into() as i64` is infallible if `num.category() == NumberCategory::Fixnum`
+/// - `num.try_into() as Integer` is infallible if `num.category() <= NumberCategory::Integer`
+/// - `num.try_into() as Rational` is infallible if `num.category() <= NumberCategory::Rational`
+/// - `num.to_f64()` is always infallible, but `num.try_into() as f64` can fail for values
+///   that cannot fit in an `f64`
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NumberCategory {
+    Fixnum,
+    Integer,
+    Rational,
+    Float,
+}
+
 impl From<f64> for Number {
     fn from(value: f64) -> Self {
         Self::Float(OrderedFloat(value))
@@ -726,12 +751,7 @@ impl TryFrom<Number> for f64 {
 
     #[inline]
     fn try_from(value: Number) -> Result<Self, Self::Error> {
-        crate::arithmetic::classify_float(match value {
-            Number::Float(OrderedFloat(float)) => float,
-            Number::Integer(int) => int.to_f64().value(),
-            Number::Rational(rat) => rat.to_f64().value(),
-            Number::Fixnum(fixnum) => fixnum.get_num() as f64,
-        })
+        crate::arithmetic::classify_float(value.to_f64())
     }
 }
 
@@ -752,7 +772,72 @@ impl TryFrom<Number> for Rational {
     }
 }
 
+impl TryFrom<Number> for Integer {
+    type Error = EvalError;
+
+    #[inline]
+    fn try_from(value: Number) -> Result<Self, Self::Error> {
+        match value {
+            Number::Float(float) => Integer::try_from(*float).map_err(|err| match err {
+                ConversionError::LossOfPrecision => EvalError::FloatOverflow,
+                ConversionError::OutOfBounds => EvalError::FloatOverflow,
+            }),
+            Number::Integer(int) => Ok((*int).clone()),
+            Number::Rational(rat) => Ok(rat.floor()),
+            Number::Fixnum(fixnum) => Ok(Integer::from(fixnum.get_num())),
+        }
+    }
+}
+
+impl TryFrom<Number> for i64 {
+    type Error = EvalError;
+
+    #[inline]
+    fn try_from(value: Number) -> Result<Self, Self::Error> {
+        match value {
+            Number::Float(float) => {
+                if i64::MIN as f64 <= *float || *float <= i64::MAX as f64 {
+                    Ok(*float as i64)
+                } else {
+                    Err(EvalError::FloatOverflow)
+                }
+            }
+            Number::Integer(int) => (*int).clone().try_into().map_err(|err| match err {
+                ConversionError::OutOfBounds => EvalError::FloatOverflow,
+                ConversionError::LossOfPrecision => EvalError::FloatOverflow,
+            }),
+            Number::Rational(rat) => (*rat).floor().try_into().map_err(|err| match err {
+                ConversionError::OutOfBounds => EvalError::FloatOverflow,
+                ConversionError::LossOfPrecision => EvalError::FloatOverflow,
+            }),
+            Number::Fixnum(fixnum) => Ok(fixnum.get_num()),
+        }
+    }
+}
+
 impl Number {
+    pub(crate) fn category(&self) -> NumberCategory {
+        match self {
+            Number::Float(_) => NumberCategory::Float,
+            Number::Integer(_) => NumberCategory::Integer,
+            Number::Rational(_) => NumberCategory::Rational,
+            Number::Fixnum(_) => NumberCategory::Fixnum,
+        }
+    }
+
+    /// Attempts to convert `self` to an `f64`; the returned value may be infinite
+    /// if it cannot be represented as an `f64`.
+    ///
+    /// Prefer using `TryFrom<Number> for f64` for a conversion that rejects infinite values.
+    pub(crate) fn to_f64(&self) -> f64 {
+        match self {
+            Number::Float(OrderedFloat(float)) => *float,
+            Number::Integer(int) => int.to_f64().value(),
+            Number::Rational(rat) => rat.to_f64().value(),
+            Number::Fixnum(fixnum) => fixnum.get_num() as f64,
+        }
+    }
+
     pub(crate) fn sign(&self) -> Number {
         match self {
             Number::Float(f) if *f == 0.0 => Number::Float(OrderedFloat(0f64)),
@@ -806,6 +891,13 @@ impl Number {
     #[inline]
     pub(crate) fn is_integer(&self) -> bool {
         matches!(self, Number::Fixnum(_) | Number::Integer(_))
+    }
+}
+
+impl NumberCategory {
+    /// Returns the smallest number category that can encode both numbers.
+    pub(crate) fn meet(&self, other: NumberCategory) -> NumberCategory {
+        std::cmp::max(*self, other)
     }
 }
 
