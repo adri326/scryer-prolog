@@ -13,6 +13,7 @@ mod iai {
     #[bench::count_edges(setup::prolog_benches()["count_edges"].setup())]
     #[bench::numlist(setup::prolog_benches()["numlist"].setup())]
     #[bench::csv_codename(setup::prolog_benches()["csv_codename"].setup())]
+    #[bench::bignum(setup::prolog_benches()["bignum"].setup())]
     fn bench(mut run: impl FnMut() -> Vec<LeafAnswer>) -> Vec<LeafAnswer> {
         run()
     }

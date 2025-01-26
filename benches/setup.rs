@@ -26,6 +26,13 @@ pub fn prolog_benches() -> BTreeMap<&'static str, PrologBenchmark> {
             Strategy::Reuse,
             btreemap! { "Name" => Term::string("SPACE") },
         ),
+        (
+            "bignum",
+            "benches/bignum.pl",
+            "fibonacci_prod_log2(500, Log).",
+            Strategy::Reuse,
+            btreemap! { "Log" => Term::integer(86720) },
+        )
     ]
     .map(|b| {
         (
