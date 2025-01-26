@@ -679,28 +679,6 @@ impl Machine {
 
                         self.machine_st.p += 1;
                     }
-                    &Instruction::Shr(ref a1, ref a2, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-                        let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            shr(n1, n2, &mut self.machine_st.arena)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Shl(ref a1, ref a2, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-                        let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            shl(n1, n2, &mut self.machine_st.arena)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
                     &Instruction::Xor(ref a1, ref a2, t) => {
                         let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
                         let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
@@ -5038,7 +5016,9 @@ impl Machine {
                     | Instruction::Add(_, _, _)
                     | Instruction::Sub(_, _, _)
                     | Instruction::Mul(_, _, _)
-                    | Instruction::Div(_, _, _)) => {
+                    | Instruction::Div(_, _, _)
+                    | Instruction::Shl(_, _, _)
+                    | Instruction::Shr(_, _, _)) => {
                         assert!(native_op.is_native_op());
                         try_or_throw!(
                             self.machine_st,

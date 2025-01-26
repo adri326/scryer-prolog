@@ -545,113 +545,6 @@ pub(crate) fn int_floor_div(
     idiv(n1, n2, arena)
 }
 
-pub(crate) fn shr(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
-    let stub_gen = || {
-        let shr_atom = atom!(">>");
-        functor_stub(shr_atom, 2)
-    };
-
-    if rhs.is_integer() && rhs.is_negative() {
-        return shl(lhs, neg(rhs, arena), arena);
-    }
-
-    match lhs {
-        Number::Fixnum(lhs) => {
-            let rhs = match rhs {
-                Number::Fixnum(fix) => fix.get_num().try_into().unwrap_or(u32::MAX),
-                Number::Integer(int) => (&*int).try_into().unwrap_or(u32::MAX),
-                other => {
-                    return Err(numerical_type_error(ValidType::Integer, other, stub_gen));
-                }
-            };
-
-            let res = lhs.get_num().checked_shr(rhs).unwrap_or(0);
-            Ok(Number::arena_from(res, arena))
-        }
-        Number::Integer(lhs) => {
-            // Note: bigints require `log(n)` bits of space. If `rhs > usize::MAX`,
-            // then this clamping only becomes an issue when `lhs < 2 ^ (usize::MAX)`:
-            // - on 32-bit systems, `lhs` would need to be 512MiB big (1/8th of the addressable memory)
-            // - on 64-bit systems, `lhs` would need to be 2EiB big (!!!)
-            let rhs = match rhs {
-                Number::Fixnum(fix) => fix.get_num().try_into().unwrap_or(usize::MAX),
-                Number::Integer(int) => (&*int).try_into().unwrap_or(usize::MAX),
-                other => {
-                    return Err(numerical_type_error(ValidType::Integer, other, stub_gen));
-                }
-            };
-
-            Ok(Number::arena_from(Integer::from(&*lhs >> rhs), arena))
-        }
-        other => Err(numerical_type_error(ValidType::Integer, other, stub_gen)),
-    }
-}
-
-pub(crate) fn shl(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
-    let stub_gen = || {
-        let shl_atom = atom!("<<");
-        functor_stub(shl_atom, 2)
-    };
-
-    if rhs.is_integer() && rhs.is_negative() {
-        return shr(lhs, neg(rhs, arena), arena);
-    }
-
-    let rhs = match rhs {
-        Number::Fixnum(fix) => fix.get_num().try_into().unwrap_or(usize::MAX),
-        Number::Integer(int) => (&*int).try_into().unwrap_or(usize::MAX),
-        other => {
-            return Err(numerical_type_error(ValidType::Integer, other, stub_gen));
-        }
-    };
-
-    match lhs {
-        Number::Fixnum(lhs) => {
-            let lhs = lhs.get_num();
-
-            if let Some(res) = checked_signed_shl(lhs, rhs) {
-                Ok(Number::arena_from(res, arena))
-            } else {
-                let lhs = Integer::from(lhs);
-                Ok(Number::arena_from(
-                    Integer::from(lhs << (rhs as usize)),
-                    arena,
-                ))
-            }
-        }
-        Number::Integer(lhs) => Ok(Number::arena_from(
-            Integer::from(&*lhs << (rhs as usize)),
-            arena,
-        )),
-        other => Err(numerical_type_error(ValidType::Integer, other, stub_gen)),
-    }
-}
-
-/// Returns `x << shift`, checking for overflow and for values of `shift` that are too big.
-#[inline]
-fn checked_signed_shl(x: i64, shift: usize) -> Option<i64> {
-    if shift == 0 {
-        return Some(x);
-    }
-
-    if x >= 0 {
-        // Note: for unsigned integers, the condition would usually be spelled
-        // `shift <= x.leading_zeros()`, but since the MSB for signed integers
-        // controls the sign, we need to make sure that `shift` is at most
-        // `x.leading_zeros() - 1`.
-        if shift < x.leading_zeros() as usize {
-            Some(x << shift)
-        } else {
-            None
-        }
-    } else {
-        let y = x.checked_neg()?;
-        // FIXME: incorrectly rejects `-2 ^ 62 << 1`. This is currently a non-issue,
-        // since the bitshift is then done as a `Number::Integer`
-        checked_signed_shl(y, shift).and_then(|res| res.checked_neg())
-    }
-}
-
 pub(crate) fn and(n1: Number, n2: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
     let stub_gen = || {
         let and_atom = atom!("/\\");
@@ -1030,12 +923,6 @@ impl MachineState {
                             ),
                             atom!("div") => self.interms.push(
                                 drop_iter_on_err!(self, iter, int_floor_div(a1, a2, &mut self.arena))
-                            ),
-                            atom!(">>") => self.interms.push(
-                                drop_iter_on_err!(self, iter, shr(a1, a2, &mut self.arena))
-                            ),
-                            atom!("<<") => self.interms.push(
-                                drop_iter_on_err!(self, iter, shl(a1, a2, &mut self.arena))
                             ),
                             atom!("/\\") => self.interms.push(
                                 drop_iter_on_err!(self, iter, and(a1, a2, &mut self.arena))

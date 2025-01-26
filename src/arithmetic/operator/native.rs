@@ -60,6 +60,19 @@ impl NativeOpError for EvalError {
     }
 }
 
+impl NativeOpError for (ValidType, Number) {
+    fn as_machine_stub_gen(self, name: Atom, arity: usize) -> MachineStubGen {
+        let (valid_type, culprit) = self;
+
+        Box::new(move |machine_st| {
+            let type_error = machine_st.type_error(valid_type, culprit);
+            let stub = crate::machine::machine_errors::functor_stub(name, arity);
+
+            machine_st.error_form(type_error, stub)
+        })
+    }
+}
+
 /// A helper function for unwrapping a [`Result<T, Infallible>`].
 ///
 /// Because of the way [`native_ops!()`](native_ops) is implemented,
@@ -266,6 +279,8 @@ native_ops!(
     Instruction::Sub(a, b, t) => ("-", binary::sub),
     Instruction::Mul(a, b, t) => ("*", binary::mul),
     Instruction::Div(a, b, t) => ("/", binary::div),
+    Instruction::Shr(a, b, t) => (">>", binary::shr),
+    Instruction::Shl(a, b, t) => ("<<", binary::shl),
 );
 
 mod unary {
@@ -438,16 +453,11 @@ mod unary {
     pub(crate) fn bitwise_complement(
         num: Number,
         arena: &mut Arena,
-    ) -> Result<Number, MachineStubGen> {
+    ) -> Result<Number, (ValidType, Number)> {
         match num {
             Number::Fixnum(n) => Ok(Number::Fixnum(Fixnum::build_with(!n.get_num()))),
             Number::Integer(n) => Ok(Number::arena_from(Integer::from(!&*n), arena)),
-            _ => Err(numerical_type_error(
-                ValidType::Integer,
-                num,
-                atom!("\\"),
-                2,
-            )),
+            _ => Err((ValidType::Integer, num)),
         }
     }
 
@@ -517,5 +527,112 @@ mod binary {
     #[inline]
     pub(crate) fn div(n1: Number, n2: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
         n1 / n2
+    }
+
+    #[inline]
+    pub(crate) fn shr(
+        lhs: Number,
+        rhs: Number,
+        arena: &mut Arena,
+    ) -> Result<Number, (ValidType, Number)> {
+        if rhs.is_integer() && rhs.is_negative() {
+            return shl(lhs, unwrap_infallible(super::unary::neg(rhs, arena)), arena);
+        }
+
+        match lhs {
+            Number::Fixnum(lhs) => {
+                let rhs = match rhs {
+                    Number::Fixnum(fix) => fix.get_num().try_into().unwrap_or(u32::MAX),
+                    Number::Integer(int) => (&*int).try_into().unwrap_or(u32::MAX),
+                    other => {
+                        return Err((ValidType::Integer, other));
+                    }
+                };
+
+                let res = lhs.get_num().checked_shr(rhs).unwrap_or(0);
+                Ok(Number::arena_from(res, arena))
+            }
+            Number::Integer(lhs) => {
+                // Note: bigints require `log(n)` bits of space. If `rhs > usize::MAX`,
+                // then this clamping only becomes an issue when `lhs < 2 ^ (usize::MAX)`:
+                // - on 32-bit systems, `lhs` would need to be 512MiB big (1/8th of the addressable memory)
+                // - on 64-bit systems, `lhs` would need to be 2EiB big (!!!)
+                let rhs = match rhs {
+                    Number::Fixnum(fix) => fix.get_num().try_into().unwrap_or(usize::MAX),
+                    Number::Integer(int) => (&*int).try_into().unwrap_or(usize::MAX),
+                    other => {
+                        return Err((ValidType::Integer, other));
+                    }
+                };
+
+                Ok(Number::arena_from(Integer::from(&*lhs >> rhs), arena))
+            }
+            other => Err((ValidType::Integer, other)),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn shl(
+        lhs: Number,
+        rhs: Number,
+        arena: &mut Arena,
+    ) -> Result<Number, (ValidType, Number)> {
+        if rhs.is_integer() && rhs.is_negative() {
+            return shr(lhs, unwrap_infallible(super::unary::neg(rhs, arena)), arena);
+        }
+
+        let rhs = match rhs {
+            Number::Fixnum(fix) => fix.get_num().try_into().unwrap_or(usize::MAX),
+            Number::Integer(int) => (&*int).try_into().unwrap_or(usize::MAX),
+            other => {
+                return Err((ValidType::Integer, other));
+            }
+        };
+
+        match lhs {
+            Number::Fixnum(lhs) => {
+                let lhs = lhs.get_num();
+
+                if let Some(res) = checked_signed_shl(lhs, rhs) {
+                    Ok(Number::arena_from(res, arena))
+                } else {
+                    let lhs = Integer::from(lhs);
+                    Ok(Number::arena_from(
+                        Integer::from(lhs << (rhs as usize)),
+                        arena,
+                    ))
+                }
+            }
+            Number::Integer(lhs) => Ok(Number::arena_from(
+                Integer::from(&*lhs << (rhs as usize)),
+                arena,
+            )),
+            other => Err((ValidType::Integer, other)),
+        }
+    }
+
+    /// Returns `x << shift`, checking for overflow and for values of `shift` that are too big.
+    #[inline]
+    fn checked_signed_shl(x: i64, shift: usize) -> Option<i64> {
+        if shift == 0 {
+            return Some(x);
+        }
+
+        if x >= 0 {
+            // Note: for unsigned integers, the condition would usually be spelled
+            // `shift <= x.leading_zeros()`, but since the MSB for signed integers
+            // controls the sign, we need to make sure that `shift` is at most
+            // `x.leading_zeros() - 1`.
+            if shift < x.leading_zeros() as usize {
+                Some(x << shift)
+            } else {
+                None
+            }
+        } else {
+            let y = x.checked_neg()?;
+            // FIXME: incorrectly rejects `-2 ^ 62 << 1`. This is currently a non-issue,
+            // since the bitshift is then done as a `Number::Integer`
+            checked_signed_shl(y, shift).and_then(|res| res.checked_neg())
+        }
     }
 }

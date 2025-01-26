@@ -32,7 +32,7 @@ pub fn prolog_benches() -> BTreeMap<&'static str, PrologBenchmark> {
             "fibonacci_prod_log2(500, Log).",
             Strategy::Reuse,
             btreemap! { "Log" => Term::integer(86720) },
-        )
+        ),
     ]
     .map(|b| {
         (
