@@ -18,6 +18,7 @@ use fxhash::FxBuildHasher;
 use indexmap::{IndexMap, IndexSet};
 use ordered_float::OrderedFloat;
 
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
@@ -760,15 +761,7 @@ impl TryFrom<Number> for Rational {
 
     #[inline]
     fn try_from(value: Number) -> Result<Self, Self::Error> {
-        match value {
-            Number::Float(float) => Rational::try_from(*float).map_err(|err| match err {
-                ConversionError::LossOfPrecision => EvalError::FloatOverflow,
-                ConversionError::OutOfBounds => EvalError::FloatOverflow,
-            }),
-            Number::Integer(bigint) => Ok(Rational::from((*bigint).clone())),
-            Number::Rational(rational) => Ok((*rational).clone()),
-            Number::Fixnum(num) => Ok(Rational::from(num.get_num())),
-        }
+        value.to_rational().map(Cow::into_owned)
     }
 }
 
@@ -777,15 +770,7 @@ impl TryFrom<Number> for Integer {
 
     #[inline]
     fn try_from(value: Number) -> Result<Self, Self::Error> {
-        match value {
-            Number::Float(float) => Integer::try_from(*float).map_err(|err| match err {
-                ConversionError::LossOfPrecision => EvalError::FloatOverflow,
-                ConversionError::OutOfBounds => EvalError::FloatOverflow,
-            }),
-            Number::Integer(int) => Ok((*int).clone()),
-            Number::Rational(rat) => Ok(rat.floor()),
-            Number::Fixnum(fixnum) => Ok(Integer::from(fixnum.get_num())),
-        }
+        value.to_integer().map(Cow::into_owned)
     }
 }
 
@@ -836,6 +821,34 @@ impl Number {
             Number::Integer(int) => int.to_f64().value(),
             Number::Rational(rat) => rat.to_f64().value(),
             Number::Fixnum(fixnum) => fixnum.get_num() as f64,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn to_integer<'a>(&'a self) -> Result<Cow<'a, Integer>, EvalError> {
+        match self {
+            &Number::Float(float) => match Integer::try_from(*float) {
+                Err(ConversionError::LossOfPrecision) => Err(EvalError::FloatOverflow),
+                Err(ConversionError::OutOfBounds) => Err(EvalError::FloatOverflow),
+                Ok(int) => Ok(Cow::Owned(int))
+            },
+            Number::Integer(int) => Ok(Cow::Borrowed(&**int)),
+            &Number::Rational(rat) => Ok(Cow::Owned(rat.floor())),
+            &Number::Fixnum(fixnum) => Ok(Cow::Owned(Integer::from(fixnum.get_num()))),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn to_rational<'a>(&'a self) -> Result<Cow<'a, Rational>, EvalError> {
+        match self {
+            &Number::Float(float) => match Rational::try_from(*float) {
+                Err(ConversionError::LossOfPrecision) => Err(EvalError::FloatOverflow),
+                Err(ConversionError::OutOfBounds) => Err(EvalError::FloatOverflow),
+                Ok(rat) => Ok(Cow::Owned(rat))
+            },
+            &Number::Integer(bigint) => Ok(Cow::Owned(Rational::from((*bigint).clone()))),
+            Number::Rational(rational) => Ok(Cow::Borrowed(&**rational)),
+            &Number::Fixnum(num) => Ok(Cow::Owned(Rational::from(num.get_num()))),
         }
     }
 

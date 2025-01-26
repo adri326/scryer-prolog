@@ -44,12 +44,12 @@ macro_rules! convert_cat {
         let $out = $in.to_f64();
     };
     ( __cast, Rational, $in:expr, $out:ident) => {
-        let $out: Rational = $in.try_into().unwrap_or_else(|err| {
+        let $out = $in.to_rational().unwrap_or_else(|err| {
             unreachable!("Numerical upcasting failure: {err:?}");
         });
     };
     ( __cast, Integer, $in:expr, $out:ident) => {
-        let $out: Integer = $in.try_into().unwrap_or_else(|err| {
+        let $out = $in.to_integer().unwrap_or_else(|err| {
             unreachable!("Numerical upcasting failure: {err:?}");
         });
     };
