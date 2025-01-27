@@ -9,7 +9,7 @@ macro_rules! convert_cat {
     ( $target_cat:expr, $inputs:tt, {
         $(
             NumberCategory :: $cat:ident
-            ( $( $outputs:ident ),* $(,)? )
+            ( $( $outputs:tt ),* $(,)? )
             => $block:block
             $(,)?
         )*
@@ -30,7 +30,7 @@ macro_rules! convert_cat {
     ( __cast_each, $cat:ident; (), ()) => {};
     ( __cast_each, $cat:ident;
         ( $input:expr $(, $inputs:expr)*),
-        ( $output:ident $(, $outputs:ident)*)
+        ( $output:tt $(, $outputs:tt)*)
     ) => {
         $crate::arithmetic::operator::macros::convert_cat!(__cast, $cat, $input, $output);
         $crate::arithmetic::operator::macros::convert_cat!(
@@ -40,6 +40,7 @@ macro_rules! convert_cat {
         );
     };
 
+    ( __cast, $cat:ident, $in:expr, _ ) => {};
     ( __cast, Float, $in:expr, $out:ident) => {
         let $out = $in.to_f64();
     };
