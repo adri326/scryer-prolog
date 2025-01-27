@@ -545,91 +545,6 @@ pub(crate) fn int_floor_div(
     idiv(n1, n2, arena)
 }
 
-pub(crate) fn and(n1: Number, n2: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
-    let stub_gen = || {
-        let and_atom = atom!("/\\");
-        functor_stub(and_atom, 2)
-    };
-
-    match (n1, n2) {
-        (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-            Ok(Number::arena_from(n1.get_num() & n2.get_num(), arena))
-        }
-        (Number::Fixnum(n1), Number::Integer(n2)) => {
-            let n1 = Integer::from(n1.get_num());
-            Ok(Number::arena_from(n1 & &*n2, arena))
-        }
-        (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
-            &*n1 & Integer::from(n2.get_num()),
-            arena,
-        )),
-        (Number::Integer(n1), Number::Integer(n2)) => {
-            Ok(Number::arena_from(Integer::from(&*n1 & &*n2), arena))
-        }
-        (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => {
-            Err(numerical_type_error(ValidType::Integer, n2, stub_gen))
-        }
-        (n1, _) => Err(numerical_type_error(ValidType::Integer, n1, stub_gen)),
-    }
-}
-
-pub(crate) fn or(n1: Number, n2: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
-    let stub_gen = || {
-        let or_atom = atom!("\\/");
-        functor_stub(or_atom, 2)
-    };
-
-    match (n1, n2) {
-        (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-            Ok(Number::arena_from(n1.get_num() | n2.get_num(), arena))
-        }
-        (Number::Fixnum(n1), Number::Integer(n2)) => {
-            let n1 = Integer::from(n1.get_num());
-            Ok(Number::arena_from(n1 | &*n2, arena))
-        }
-        (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
-            &*n1 | Integer::from(n2.get_num()),
-            arena,
-        )),
-        (Number::Integer(n1), Number::Integer(n2)) => {
-            Ok(Number::arena_from(Integer::from(&*n1 | &*n2), arena))
-        }
-        (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => {
-            Err(numerical_type_error(ValidType::Integer, n2, stub_gen))
-        }
-        (n1, _) => Err(numerical_type_error(ValidType::Integer, n1, stub_gen)),
-    }
-}
-
-pub(crate) fn xor(n1: Number, n2: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
-    let stub_gen = || {
-        let xor_atom = atom!("xor");
-        functor_stub(xor_atom, 2)
-    };
-
-    match (n1, n2) {
-        (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-            Ok(Number::arena_from(n1.get_num() ^ n2.get_num(), arena))
-        }
-        (Number::Fixnum(n1), Number::Integer(n2)) => {
-            let n1 = Integer::from(n1.get_num());
-            Ok(Number::arena_from(n1 ^ &*n2, arena))
-        }
-        (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
-            &*n1 ^ Integer::from(n2.get_num()),
-            arena,
-        )),
-        (Number::Integer(n1), Number::Integer(n2)) => {
-            Ok(Number::arena_from(Integer::from(&*n1 ^ &*n2), arena))
-        }
-        (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => {
-            Err(numerical_type_error(ValidType::Integer, n2, stub_gen))
-        }
-        (n1, Number::Integer(_)) => Err(numerical_type_error(ValidType::Integer, n1, stub_gen)),
-        _ => Err(numerical_type_error(ValidType::Integer, n1, stub_gen)),
-    }
-}
-
 pub(crate) fn modulus(x: Number, y: Number, arena: &mut Arena) -> Result<Number, MachineStubGen> {
     let stub_gen = || {
         let mod_atom = atom!("mod");
@@ -923,15 +838,6 @@ impl MachineState {
                             ),
                             atom!("div") => self.interms.push(
                                 drop_iter_on_err!(self, iter, int_floor_div(a1, a2, &mut self.arena))
-                            ),
-                            atom!("/\\") => self.interms.push(
-                                drop_iter_on_err!(self, iter, and(a1, a2, &mut self.arena))
-                            ),
-                            atom!("\\/") => self.interms.push(
-                                drop_iter_on_err!(self, iter, or(a1, a2, &mut self.arena))
-                            ),
-                            atom!("xor") => self.interms.push(
-                                drop_iter_on_err!(self, iter, xor(a1, a2, &mut self.arena))
                             ),
                             atom!("mod") => self.interms.push(
                                 drop_iter_on_err!(self, iter, modulus(a1, a2, &mut self.arena))

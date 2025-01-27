@@ -281,6 +281,9 @@ native_ops!(
     Instruction::Div(a, b, t) => ("/", binary::div),
     Instruction::Shr(a, b, t) => (">>", binary::shr),
     Instruction::Shl(a, b, t) => ("<<", binary::shl),
+    Instruction::And(a, b, t) => ("/\\", binary::and),
+    Instruction::Or(a, b, t) => ("\\/", binary::or),
+    Instruction::Xor(a, b, t) => ("xor", binary::xor),
 );
 
 mod unary {
@@ -633,6 +636,82 @@ mod binary {
             // FIXME: incorrectly rejects `-2 ^ 62 << 1`. This is currently a non-issue,
             // since the bitshift is then done as a `Number::Integer`
             checked_signed_shl(y, shift).and_then(|res| res.checked_neg())
+        }
+    }
+
+    pub(crate) fn and(
+        n1: Number,
+        n2: Number,
+        arena: &mut Arena,
+    ) -> Result<Number, (ValidType, Number)> {
+        match (n1, n2) {
+            (Number::Fixnum(n1), Number::Fixnum(n2)) => {
+                Ok(Number::arena_from(n1.get_num() & n2.get_num(), arena))
+            }
+            (Number::Fixnum(n1), Number::Integer(n2)) => {
+                let n1 = Integer::from(n1.get_num());
+                Ok(Number::arena_from(n1 & &*n2, arena))
+            }
+            (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
+                &*n1 & Integer::from(n2.get_num()),
+                arena,
+            )),
+            (Number::Integer(n1), Number::Integer(n2)) => {
+                Ok(Number::arena_from(Integer::from(&*n1 & &*n2), arena))
+            }
+            (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => Err((ValidType::Integer, n2)),
+            (n1, _) => Err((ValidType::Integer, n1)),
+        }
+    }
+
+    pub(crate) fn or(
+        n1: Number,
+        n2: Number,
+        arena: &mut Arena,
+    ) -> Result<Number, (ValidType, Number)> {
+        match (n1, n2) {
+            (Number::Fixnum(n1), Number::Fixnum(n2)) => {
+                Ok(Number::arena_from(n1.get_num() | n2.get_num(), arena))
+            }
+            (Number::Fixnum(n1), Number::Integer(n2)) => {
+                let n1 = Integer::from(n1.get_num());
+                Ok(Number::arena_from(n1 | &*n2, arena))
+            }
+            (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
+                &*n1 | Integer::from(n2.get_num()),
+                arena,
+            )),
+            (Number::Integer(n1), Number::Integer(n2)) => {
+                Ok(Number::arena_from(Integer::from(&*n1 | &*n2), arena))
+            }
+            (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => Err((ValidType::Integer, n2)),
+            (n1, _) => Err((ValidType::Integer, n1)),
+        }
+    }
+
+    pub(crate) fn xor(
+        n1: Number,
+        n2: Number,
+        arena: &mut Arena,
+    ) -> Result<Number, (ValidType, Number)> {
+        match (n1, n2) {
+            (Number::Fixnum(n1), Number::Fixnum(n2)) => {
+                Ok(Number::arena_from(n1.get_num() ^ n2.get_num(), arena))
+            }
+            (Number::Fixnum(n1), Number::Integer(n2)) => {
+                let n1 = Integer::from(n1.get_num());
+                Ok(Number::arena_from(n1 ^ &*n2, arena))
+            }
+            (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
+                &*n1 ^ Integer::from(n2.get_num()),
+                arena,
+            )),
+            (Number::Integer(n1), Number::Integer(n2)) => {
+                Ok(Number::arena_from(Integer::from(&*n1 ^ &*n2), arena))
+            }
+            (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => Err((ValidType::Integer, n2)),
+            (n1, Number::Integer(_)) => Err((ValidType::Integer, n1)),
+            _ => Err((ValidType::Integer, n1)),
         }
     }
 }

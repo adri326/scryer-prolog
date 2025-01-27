@@ -679,39 +679,6 @@ impl Machine {
 
                         self.machine_st.p += 1;
                     }
-                    &Instruction::Xor(ref a1, ref a2, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-                        let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            xor(n1, n2, &mut self.machine_st.arena)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::And(ref a1, ref a2, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-                        let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            and(n1, n2, &mut self.machine_st.arena)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
-                    &Instruction::Or(ref a1, ref a2, t) => {
-                        let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
-                        let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
-
-                        self.machine_st.interms[t - 1] = try_or_throw_gen!(
-                            &mut self.machine_st,
-                            or(n1, n2, &mut self.machine_st.arena)
-                        );
-
-                        self.machine_st.p += 1;
-                    }
                     &Instruction::Mod(ref a1, ref a2, t) => {
                         let n1 = try_or_throw!(self.machine_st, self.machine_st.get_number(a1));
                         let n2 = try_or_throw!(self.machine_st, self.machine_st.get_number(a2));
@@ -5018,7 +4985,10 @@ impl Machine {
                     | Instruction::Mul(_, _, _)
                     | Instruction::Div(_, _, _)
                     | Instruction::Shl(_, _, _)
-                    | Instruction::Shr(_, _, _)) => {
+                    | Instruction::Shr(_, _, _)
+                    | Instruction::And(_, _, _)
+                    | Instruction::Or(_, _, _)
+                    | Instruction::Xor(_, _, _)) => {
                         assert!(native_op.is_native_op());
                         try_or_throw!(
                             self.machine_st,
