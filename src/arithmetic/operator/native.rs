@@ -471,7 +471,20 @@ mod unary {
 }
 
 mod binary {
+    use macros::convert_cat;
+
     use super::*;
+
+    fn get_int_category(lhs: Number, rhs: Number) -> Result<NumberCategory, (ValidType, Number)> {
+        let cat = lhs.category().meet(rhs.category());
+        if cat <= NumberCategory::Integer {
+            Ok(cat)
+        } else if lhs.category() >= rhs.category() {
+            Err((ValidType::Integer, lhs))
+        } else {
+            Err((ValidType::Integer, rhs))
+        }
+    }
 
     pub(crate) fn add(lhs: Number, rhs: Number, arena: &mut Arena) -> Result<Number, EvalError> {
         binary_op!((lhs, rhs), {
@@ -640,78 +653,65 @@ mod binary {
     }
 
     pub(crate) fn and(
-        n1: Number,
-        n2: Number,
+        lhs: Number,
+        rhs: Number,
         arena: &mut Arena,
     ) -> Result<Number, (ValidType, Number)> {
-        match (n1, n2) {
-            (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-                Ok(Number::arena_from(n1.get_num() & n2.get_num(), arena))
+        convert_cat!(get_int_category(lhs, rhs)?, (lhs, rhs), {
+            NumberCategory::Fixnum(lhs, rhs) => {
+                Ok(Number::arena_from(lhs & rhs, arena))
             }
-            (Number::Fixnum(n1), Number::Integer(n2)) => {
-                let n1 = Integer::from(n1.get_num());
-                Ok(Number::arena_from(n1 & &*n2, arena))
+            NumberCategory::Integer(lhs, rhs) => {
+                Ok(Number::arena_from(lhs.as_ref() & rhs.as_ref(), arena))
             }
-            (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
-                &*n1 & Integer::from(n2.get_num()),
-                arena,
-            )),
-            (Number::Integer(n1), Number::Integer(n2)) => {
-                Ok(Number::arena_from(Integer::from(&*n1 & &*n2), arena))
+            NumberCategory::Rational(_, _) => {
+                unreachable!();
             }
-            (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => Err((ValidType::Integer, n2)),
-            (n1, _) => Err((ValidType::Integer, n1)),
-        }
+            NumberCategory::Float(_, _) => {
+                unreachable!();
+            }
+        })
     }
 
     pub(crate) fn or(
-        n1: Number,
-        n2: Number,
+        lhs: Number,
+        rhs: Number,
         arena: &mut Arena,
     ) -> Result<Number, (ValidType, Number)> {
-        match (n1, n2) {
-            (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-                Ok(Number::arena_from(n1.get_num() | n2.get_num(), arena))
+        convert_cat!(get_int_category(lhs, rhs)?, (lhs, rhs), {
+            NumberCategory::Fixnum(lhs, rhs) => {
+                Ok(Number::arena_from(lhs | rhs, arena))
             }
-            (Number::Fixnum(n1), Number::Integer(n2)) => {
-                let n1 = Integer::from(n1.get_num());
-                Ok(Number::arena_from(n1 | &*n2, arena))
+            NumberCategory::Integer(lhs, rhs) => {
+                Ok(Number::arena_from(lhs.as_ref() | rhs.as_ref(), arena))
             }
-            (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
-                &*n1 | Integer::from(n2.get_num()),
-                arena,
-            )),
-            (Number::Integer(n1), Number::Integer(n2)) => {
-                Ok(Number::arena_from(Integer::from(&*n1 | &*n2), arena))
+            NumberCategory::Rational(_, _) => {
+                unreachable!();
             }
-            (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => Err((ValidType::Integer, n2)),
-            (n1, _) => Err((ValidType::Integer, n1)),
-        }
+            NumberCategory::Float(_, _) => {
+                unreachable!();
+            }
+        })
     }
 
     pub(crate) fn xor(
-        n1: Number,
-        n2: Number,
+        lhs: Number,
+        rhs: Number,
         arena: &mut Arena,
     ) -> Result<Number, (ValidType, Number)> {
-        match (n1, n2) {
-            (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-                Ok(Number::arena_from(n1.get_num() ^ n2.get_num(), arena))
+        convert_cat!(get_int_category(lhs, rhs)?, (lhs, rhs), {
+            NumberCategory::Fixnum(lhs, rhs) => {
+                Ok(Number::arena_from(lhs ^ rhs, arena))
             }
-            (Number::Fixnum(n1), Number::Integer(n2)) => {
-                let n1 = Integer::from(n1.get_num());
-                Ok(Number::arena_from(n1 ^ &*n2, arena))
+            NumberCategory::Integer(lhs, rhs) => {
+                Ok(Number::arena_from(lhs.as_ref() ^ rhs.as_ref(), arena))
             }
-            (Number::Integer(n1), Number::Fixnum(n2)) => Ok(Number::arena_from(
-                &*n1 ^ Integer::from(n2.get_num()),
-                arena,
-            )),
-            (Number::Integer(n1), Number::Integer(n2)) => {
-                Ok(Number::arena_from(Integer::from(&*n1 ^ &*n2), arena))
+            NumberCategory::Rational(_, _) => {
+                unreachable!();
             }
-            (Number::Integer(_), n2) | (Number::Fixnum(_), n2) => Err((ValidType::Integer, n2)),
-            (n1, Number::Integer(_)) => Err((ValidType::Integer, n1)),
-            _ => Err((ValidType::Integer, n1)),
-        }
+            NumberCategory::Float(_, _) => {
+                unreachable!();
+            }
+        })
     }
 }
