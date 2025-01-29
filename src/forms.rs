@@ -906,6 +906,27 @@ impl Number {
     pub(crate) fn is_integer(&self) -> bool {
         matches!(self, Number::Fixnum(_) | Number::Integer(_))
     }
+
+    /// Converts `self` such that `self.convert(cat).category() == cat`.
+    #[inline]
+    pub(crate) fn convert(
+        &self,
+        category: NumberCategory,
+        arena: &mut Arena,
+    ) -> Result<Number, EvalError> {
+        match category {
+            NumberCategory::Fixnum => {
+                i64::try_from(*self).map(|num| Number::arena_from(num, arena))
+            }
+            NumberCategory::Integer => {
+                Integer::try_from(*self).map(|num| Number::arena_from(num, arena))
+            }
+            NumberCategory::Rational => {
+                Rational::try_from(*self).map(|num| Number::arena_from(num, arena))
+            }
+            NumberCategory::Float => f64::try_from(*self).map(OrderedFloat).map(Number::Float),
+        }
+    }
 }
 
 impl NumberCategory {

@@ -718,82 +718,24 @@ mod binary {
         })
     }
 
-    pub(crate) fn max(n1: Number, n2: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
-        match (n1, n2) {
-            (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-                if n1.get_num() > n2.get_num() {
-                    Ok(Number::Fixnum(n1))
-                } else {
-                    Ok(Number::Fixnum(n2))
-                }
-            }
-            (Number::Fixnum(n1), Number::Integer(n2)) => {
-                if (*n2).num_gt(&n1.get_num()) {
-                    Ok(Number::Integer(n2))
-                } else {
-                    Ok(Number::Fixnum(n1))
-                }
-            }
-            (Number::Integer(n1), Number::Fixnum(n2)) => {
-                if (*n1).num_gt(&n2.get_num()) {
-                    Ok(Number::Integer(n1))
-                } else {
-                    Ok(Number::Fixnum(n2))
-                }
-            }
-            (Number::Integer(n1), Number::Integer(n2)) => Ok(Number::Integer(cmp::max(n1, n2))),
-            (Number::Rational(r1), Number::Rational(r2)) => Ok(Number::Rational(cmp::max(r1, r2))),
-            (n1, n2) => {
-                let f1 = result_f(&n1)?;
-                let f2 = result_f(&n2)?;
-
-                match OrderedFloat(f1).cmp(&OrderedFloat(f2)) {
-                    cmp::Ordering::Less => Ok(n2),
-                    cmp::Ordering::Equal => Ok(Number::Float(OrderedFloat(f2))),
-                    cmp::Ordering::Greater => Ok(n1),
-                }
+    pub(crate) fn max(n1: Number, n2: Number, arena: &mut Arena) -> Result<Number, EvalError> {
+        match n1.cmp(&n2) {
+            Ordering::Less => Ok(n2),
+            Ordering::Greater => Ok(n1),
+            Ordering::Equal => {
+                let target_cat = n1.category().meet(n2.category());
+                n2.convert(target_cat, arena)
             }
         }
     }
 
-    pub(crate) fn min(n1: Number, n2: Number, _arena: &mut Arena) -> Result<Number, EvalError> {
-        match (n1, n2) {
-            (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-                if n1.get_num() < n2.get_num() {
-                    Ok(Number::Fixnum(n1))
-                } else {
-                    Ok(Number::Fixnum(n2))
-                }
-            }
-            (Number::Fixnum(n1), Number::Integer(n2)) => {
-                if (*n2).num_lt(&n1.get_num()) {
-                    Ok(Number::Integer(n2))
-                } else {
-                    Ok(Number::Fixnum(n1))
-                }
-            }
-            (Number::Integer(n1), Number::Fixnum(n2)) => {
-                if (*n1).num_lt(&n2.get_num()) {
-                    Ok(Number::Integer(n1))
-                } else {
-                    Ok(Number::Fixnum(n2))
-                }
-            }
-            (Number::Integer(n1), Number::Integer(n2)) => Ok(Number::Integer(cmp::min(n1, n2))),
-            (Number::Rational(r1), Number::Rational(r2)) => Ok(Number::Rational(cmp::min(r1, r2))),
-            (n1, n2) => {
-                let f1 = result_f(&n1)?;
-                let f2 = result_f(&n2)?;
-
-                match OrderedFloat(f1).cmp(&OrderedFloat(f2)) {
-                    cmp::Ordering::Less => Ok(n1),
-                    cmp::Ordering::Equal => {
-                        // Note: n1 and n2 were compared as floats,
-                        // so we return the first argument as a floating point value.
-                        Ok(Number::Float(OrderedFloat(f1)))
-                    }
-                    cmp::Ordering::Greater => Ok(n2),
-                }
+    pub(crate) fn min(n1: Number, n2: Number, arena: &mut Arena) -> Result<Number, EvalError> {
+        match n1.cmp(&n2) {
+            Ordering::Less => Ok(n1),
+            Ordering::Greater => Ok(n2),
+            Ordering::Equal => {
+                let target_cat = n1.category().meet(n2.category());
+                n1.convert(target_cat, arena)
             }
         }
     }
