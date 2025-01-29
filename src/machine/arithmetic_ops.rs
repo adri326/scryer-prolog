@@ -17,7 +17,6 @@ use crate::types::*;
 
 use ordered_float::{Float, OrderedFloat};
 
-use std::cmp;
 use std::convert::TryFrom;
 use std::f64;
 use std::mem;
@@ -346,100 +345,6 @@ where
     let f1 = result_f(&Number::Float(OrderedFloat(f(f1))));
 
     try_numeric_result!(f1, stub_gen)
-}
-
-pub(crate) fn max(n1: Number, n2: Number) -> Result<Number, MachineStubGen> {
-    match (n1, n2) {
-        (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-            if n1.get_num() > n2.get_num() {
-                Ok(Number::Fixnum(n1))
-            } else {
-                Ok(Number::Fixnum(n2))
-            }
-        }
-        (Number::Fixnum(n1), Number::Integer(n2)) => {
-            if (*n2).num_gt(&n1.get_num()) {
-                Ok(Number::Integer(n2))
-            } else {
-                Ok(Number::Fixnum(n1))
-            }
-        }
-        (Number::Integer(n1), Number::Fixnum(n2)) => {
-            if (*n1).num_gt(&n2.get_num()) {
-                Ok(Number::Integer(n1))
-            } else {
-                Ok(Number::Fixnum(n2))
-            }
-        }
-        (Number::Integer(n1), Number::Integer(n2)) => Ok(Number::Integer(cmp::max(n1, n2))),
-        (Number::Rational(r1), Number::Rational(r2)) => Ok(Number::Rational(cmp::max(r1, r2))),
-        (n1, n2) => {
-            let stub_gen = || {
-                let max_atom = atom!("max");
-                functor_stub(max_atom, 2)
-            };
-
-            let f1 = try_numeric_result!(result_f(&n1), stub_gen)?;
-            let f2 = try_numeric_result!(result_f(&n2), stub_gen)?;
-
-            match OrderedFloat(f1).cmp(&OrderedFloat(f2)) {
-                cmp::Ordering::Less => Ok(n2),
-                cmp::Ordering::Equal => {
-                    // Note: n1 and n2 were compared as floats,
-                    // so we return the second argument as a floating point value.
-                    Ok(Number::Float(OrderedFloat(f2)))
-                }
-                cmp::Ordering::Greater => Ok(n1),
-            }
-        }
-    }
-}
-
-pub(crate) fn min(n1: Number, n2: Number) -> Result<Number, MachineStubGen> {
-    match (n1, n2) {
-        (Number::Fixnum(n1), Number::Fixnum(n2)) => {
-            if n1.get_num() < n2.get_num() {
-                Ok(Number::Fixnum(n1))
-            } else {
-                Ok(Number::Fixnum(n2))
-            }
-        }
-        (Number::Fixnum(n1), Number::Integer(n2)) => {
-            if (*n2).num_lt(&n1.get_num()) {
-                Ok(Number::Integer(n2))
-            } else {
-                Ok(Number::Fixnum(n1))
-            }
-        }
-        (Number::Integer(n1), Number::Fixnum(n2)) => {
-            if (*n1).num_lt(&n2.get_num()) {
-                Ok(Number::Integer(n1))
-            } else {
-                Ok(Number::Fixnum(n2))
-            }
-        }
-        (Number::Integer(n1), Number::Integer(n2)) => Ok(Number::Integer(cmp::min(n1, n2))),
-        (Number::Rational(r1), Number::Rational(r2)) => Ok(Number::Rational(cmp::min(r1, r2))),
-        (n1, n2) => {
-            let stub_gen = || {
-                let min_atom = atom!("min");
-                functor_stub(min_atom, 2)
-            };
-
-            let f1 = try_numeric_result!(result_f(&n1), stub_gen)?;
-            let f2 = try_numeric_result!(result_f(&n2), stub_gen)?;
-
-            match OrderedFloat(f1).cmp(&OrderedFloat(f2)) {
-                cmp::Ordering::Less => Ok(n1),
-                cmp::Ordering::Equal => {
-                    // Note: n1 and n2 were compared as floats,
-                    // so we return the first argument as a floating point value.
-                    Ok(Number::Float(OrderedFloat(f1)))
-                }
-                cmp::Ordering::Greater => Ok(n2),
-            }
-        }
-    }
 }
 
 pub fn rational_from_number(
@@ -806,12 +711,6 @@ impl MachineState {
                             ),
                             atom!("^") => self.interms.push(
                                 drop_iter_on_err!(self, iter, int_pow(a1, a2, &mut self.arena))
-                            ),
-                            atom!("max") => self.interms.push(
-                                drop_iter_on_err!(self, iter, max(a1, a2))
-                            ),
-                            atom!("min") => self.interms.push(
-                                drop_iter_on_err!(self, iter, min(a1, a2))
                             ),
                             atom!("rdiv") => {
                                 let r1 = drop_iter_on_err!(
