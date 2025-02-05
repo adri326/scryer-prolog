@@ -38,9 +38,15 @@ pub const fn prelude_size<Prelude>() -> usize {
 pub struct Stack {
     buf: RawBlock<Stack>,
     _marker: PhantomData<HeapCellValue>,
+
+    #[cfg(debug_assertions)]
+    trace: Vec<(usize, bool)>, // (offset within `buf` and whether it is an AndFrame)
+
+    #[cfg(debug_assertions)]
+    dangling_frame: Option<(usize, bool)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct AndFramePrelude {
     pub(crate) num_cells: usize,
     pub(crate) e: usize,
@@ -121,7 +127,7 @@ impl IndexMut<usize> for Stack {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct OrFramePrelude {
     pub(crate) num_cells: usize,
     pub(crate) e: usize,
@@ -194,6 +200,10 @@ impl Stack {
         Stack {
             buf: RawBlock::new(),
             _marker: PhantomData,
+            #[cfg(debug_assertions)]
+            trace: Default::default(),
+            #[cfg(debug_assertions)]
+            dangling_frame: Default::default(),
         }
     }
 
@@ -201,6 +211,10 @@ impl Stack {
         Stack {
             buf: RawBlock::empty_block(),
             _marker: PhantomData,
+            #[cfg(debug_assertions)]
+            trace: Default::default(),
+            #[cfg(debug_assertions)]
+            dangling_frame: Default::default(),
         }
     }
 
@@ -226,6 +240,15 @@ impl Stack {
         unsafe {
             let e = self.buf.len();
             let new_ptr = self.alloc(frame_size);
+
+            ptr::write(
+                new_ptr.cast::<AndFramePrelude>(),
+                AndFramePrelude::default(),
+            );
+
+            #[cfg(debug_assertions)]
+            self.trace.push((e, true));
+
             let mut offset = prelude_size::<AndFramePrelude>();
 
             for idx in 0..num_cells {
@@ -255,6 +278,12 @@ impl Stack {
         unsafe {
             let b = self.buf.len();
             let new_ptr = self.alloc(frame_size);
+
+            ptr::write(new_ptr.cast::<OrFramePrelude>(), OrFramePrelude::default());
+
+            #[cfg(debug_assertions)]
+            self.trace.push((b, false));
+
             let mut offset = prelude_size::<OrFramePrelude>();
 
             for idx in 0..num_cells {
@@ -273,8 +302,58 @@ impl Stack {
         }
     }
 
+    #[cfg(debug_assertions)]
+    fn check_frame_exists(&self, e: usize, is_and: bool) {
+        let mut iter = self
+            .trace
+            .iter()
+            .chain(self.dangling_frame.as_ref())
+            .copied();
+        if let Some((_, and)) = iter.find(|&(ptr, _)| ptr == e) {
+            if and != is_and {
+                eprint!("Tried to access a frame of the wrong type!\nThe stack at {e} contains ");
+                if and {
+                    eprint!("{:#?}", unsafe {
+                        &*self.buf.get(e).unwrap().cast::<AndFramePrelude>()
+                    });
+                } else {
+                    eprint!("{:#?}", unsafe {
+                        &*self.buf.get(e).unwrap().cast::<OrFramePrelude>()
+                    });
+                }
+                eprintln!(
+                    " but an {} was requested. This is UB :)",
+                    if is_and { "AndFrame" } else { "OrFrame" }
+                );
+                panic!();
+            }
+        } else {
+            let prev = self
+                .trace
+                .iter()
+                .filter(|(pos, _)| *pos < e)
+                .map(|&(pos, _)| pos)
+                .max_by_key(|&pos| pos);
+            let next = self
+                .trace
+                .iter()
+                .filter(|(pos, _)| *pos > e)
+                .map(|&(pos, _)| pos)
+                .min_by_key(|&pos| pos);
+            panic!(
+                "No stack frame found at {e}; previous is {prev:?}, next is {next:?}, dangling is {:?}!",
+                self.dangling_frame
+            );
+        }
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[inline(always)]
+    fn check_frame_exists(&self, _e: usize, _and: bool) {}
+
     #[inline(always)]
     pub(crate) fn index_and_frame(&self, e: usize) -> &AndFrame {
+        self.check_frame_exists(e, true);
         unsafe {
             let ptr = self.buf.get(e).unwrap();
             // TODO: ensure safety of this cast
@@ -284,6 +363,7 @@ impl Stack {
 
     #[inline(always)]
     pub(crate) fn index_and_frame_mut(&mut self, e: usize) -> &mut AndFrame {
+        self.check_frame_exists(e, true);
         unsafe {
             // This is doing alignment wrong
             let ptr = self.buf.get(e).unwrap();
@@ -294,10 +374,16 @@ impl Stack {
 
     #[inline(always)]
     pub(crate) fn index_or_frame(&self, b: usize) -> &OrFrame {
+        self.check_frame_exists(b, false);
         unsafe {
             let ptr = self.buf.get(b).unwrap();
             // TODO: ensure safety of this cast
-            &*(ptr as *const OrFrame)
+            let res = &*(ptr as *const OrFrame);
+            assert!(
+                res.prelude.bp < 1_000_000_000,
+                "Invalid bp in prelude: {res:?}"
+            );
+            res
         }
     }
 
@@ -316,16 +402,27 @@ impl Stack {
             // - Assumed: no other allocations have been done since the last call to `self.truncate()`
             // - Postcondition: from `self.buf.truncate`, the pointer `ptr` is not yet invalidated.
             let ptr = self.buf.get_unchecked(self.top());
-            &*(ptr as *const OrFrame)
+            let res = &*(ptr as *const OrFrame);
+            assert!(
+                res.prelude.bp < 1_000_000_000,
+                "Invalid bp in prelude: {res:?}"
+            );
+            res
         }
     }
 
     #[inline(always)]
     pub(crate) fn index_or_frame_mut(&mut self, b: usize) -> &mut OrFrame {
+        self.check_frame_exists(b, false);
         unsafe {
             let ptr = self.buf.get_mut_unchecked(b);
             // TODO: ensure safety of this cast
-            &mut *(ptr as *mut OrFrame)
+            let res = &mut *(ptr as *mut OrFrame);
+            assert!(
+                res.prelude.bp < 1_000_000_000,
+                "Invalid bp in prelude: {res:?}"
+            );
+            res
         }
     }
 
@@ -341,6 +438,18 @@ impl Stack {
             // I think that one could also create a safer abstraction for the
             // "store offset, do work, truncate to offset" kind of tasks.
             self.buf.truncate(byte_offset);
+
+            if let Some(pair) = self
+                .trace
+                .iter()
+                .filter(|(ptr, _)| *ptr >= byte_offset)
+                .min_by_key(|(ptr, _)| ptr)
+            {
+                self.dangling_frame = Some(*pair);
+            } else {
+                self.dangling_frame = None;
+            }
+            self.trace.retain(|&(ptr, _)| ptr < byte_offset);
         }
     }
 }
